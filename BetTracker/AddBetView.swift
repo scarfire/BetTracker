@@ -22,58 +22,75 @@ struct AddBetView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-
-                // Sport Picker
-                Picker("Sport", selection: $lastSport) {
-                    ForEach(Sport.allCases) { sport in
-                        Text(sport.rawValue).tag(sport.rawValue)
+            ZStack {
+                // Invisible tap layer to dismiss keyboard
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        isFocused = false
                     }
-                }
-                .pickerStyle(.segmented)
 
-                // Quick Add Box
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Quick Add")
-                        .font(.headline)
+                VStack(spacing: 16) {
 
-                    TextField("Bet 3 to win 5.80 Boston ML", text: $inputText)
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                        .focused($isFocused)
-
-                    Button("Save Bet") {
-                        saveBet()
+                    // Sport Picker
+                    Picker("Sport", selection: $lastSport) {
+                        ForEach(Sport.allCases) { sport in
+                            Text(sport.rawValue).tag(sport.rawValue)
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
+                    .pickerStyle(.segmented)
 
-                    if let errorMessage {
-                        Text(errorMessage)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                }
+                    // Quick Add Box
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Quick Add")
+                            .font(.headline)
 
-                // Recent Bets Today (confirmation)
-                List {
-                    ForEach(todayBets.prefix(10)) { bet in
-                        VStack(alignment: .leading) {
-                            Text("\(bet.sport) • \(bet.wagerText)")
-                                .font(.body)
+                        TextField("Boston ML Bet 3 to win 5.80", text: $inputText)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            .focused($isFocused)
 
-                            Text("Bet $\(bet.betAmount, specifier: "%.2f") → Win $\(bet.payoutAmount, specifier: "%.2f")")
+                        HStack(spacing: 12) {
+                            Button("Save Bet") {
+                                saveBet()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .frame(maxWidth: .infinity)
+
+                            Button("Done") {
+                                isFocused = false
+                            }
+                            .buttonStyle(.bordered)
+                            .frame(width: 90)
+                        }
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .foregroundColor(.red)
                                 .font(.caption)
-                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    // Recent Bets Today (confirmation)
+                    List {
+                        ForEach(todayBets.prefix(10)) { bet in
+                            VStack(alignment: .leading) {
+                                Text("\(bet.sport) • \(bet.wagerText)")
+                                    .font(.body)
+
+                                Text("Bet $\(bet.betAmount, specifier: "%.2f") → Win $\(bet.payoutAmount, specifier: "%.2f")")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                     }
                 }
-            }
-            .padding()
-            .navigationTitle("BetTracker")
-            .onAppear {
-                isFocused = true
+                .padding()
+                .navigationTitle("BetTracker")
+                .onAppear {
+                    isFocused = true
+                }
             }
         }
     }
