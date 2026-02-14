@@ -4,58 +4,36 @@
 //
 //  Created by Todd Stevens on 2/14/26.
 //
-
 import SwiftUI
 import SwiftData
 
-struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+enum Sport: String, CaseIterable, Identifiable {
+    case nhl = "NHL"
+    case nfl = "NFL"
+    case mlb = "MLB"
+    case cfb = "CFB"
+    case cbb = "CBB"
 
-    var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
-                }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-        } detail: {
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
-            }
-        }
-    }
+    var id: String { rawValue }
 }
 
-#Preview {
-    ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
+struct ContentView: View {
+    var body: some View {
+        TabView {
+            AddBetView()
+                .tabItem {
+                    Label("Add Bet", systemImage: "plus.circle.fill")
+                }
+
+            TodayView()
+                .tabItem {
+                    Label("Today", systemImage: "calendar")
+                }
+
+            SummaryView()
+                .tabItem {
+                    Label("Summary", systemImage: "chart.bar.fill")
+                }
+        }
+    }
 }
