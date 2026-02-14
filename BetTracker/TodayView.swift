@@ -11,6 +11,7 @@ import SwiftData
 struct TodayView: View {
     @Query private var bets: [Bet]
 
+    @Environment(\.modelContext) private var context
     @State private var sportFilter: String = "All"   // "All" or "NHL" etc.
 
     var body: some View {
@@ -62,6 +63,7 @@ struct TodayView: View {
                         }
                         .padding(.vertical, 4)
                     }
+                    .onDelete(perform: deleteBets)
                 }
             }
             .navigationTitle("Today")
@@ -69,6 +71,13 @@ struct TodayView: View {
     }
 
     // MARK: - Data
+
+    private func deleteBets(at offsets: IndexSet) {
+        let items = filteredTodayBetsChronological
+        for index in offsets {
+            context.delete(items[index])
+        }
+    }
 
     private var todayBets: [Bet] {
         let start = Calendar.current.startOfDay(for: Date())
