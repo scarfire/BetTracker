@@ -5,7 +5,6 @@
 //  Created by Todd Stevens on 2/14/26.
 //
 
-
 import SwiftUI
 import SwiftData
 
@@ -14,25 +13,26 @@ struct AddBetView: View {
 
     @AppStorage("lastSport") private var lastSport: String = Sport.nhl.rawValue
 
-    @State private var inputText: String = ""
-    @FocusState private var isFocused: Bool
+    @State private var whatText: String = ""
+    @State private var amountText: String = ""   // format: 5/9.32
     @State private var errorMessage: String?
+
+    @FocusState private var focusedField: Field?
+    enum Field { case what, amount }
 
     @Query private var bets: [Bet]
 
     var body: some View {
         NavigationStack {
             ZStack {
-                // Invisible tap layer to dismiss keyboard
+                // Tap anywhere to dismiss keyboard
                 Color.clear
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        isFocused = false
-                    }
+                    .onTapGesture { focusedField = nil }
 
                 VStack(spacing: 16) {
 
-                    // Sport Picker
+                    // Sport Picker (remembers last)
                     Picker("Sport", selection: $lastSport) {
                         ForEach(Sport.allCases) { sport in
                             Text(sport.rawValue).tag(sport.rawValue)
@@ -40,26 +40,43 @@ struct AddBetView: View {
                     }
                     .pickerStyle(.segmented)
 
-                    // Quick Add Box
+                    // What box
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Quick Add")
+                        Text("What")
                             .font(.headline)
 
-                        TextField("Boston ML Bet 3 to win 5.80", text: $inputText)
+                        TextField("BOS ML", text: $whatText)
+                            .textInputAutocapitalization(.characters) // helps team abbrevs
+                            .autocorrectionDisabled(true)
                             .padding()
                             .background(Color(.systemGray6))
                             .cornerRadius(12)
-                            .focused($isFocused)
+                            .focused($focusedField, equals: .what)
+                    }
+
+                    // Amounts box
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Bet / Payout")
+                            .font(.headline)
+
+                        TextField("5/9.32", text: $amountText)
+                            .keyboardType(.numbersAndPunctuation)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            .focused($focusedField, equals: .amount)
 
                         HStack(spacing: 12) {
-                            Button("Save Bet") {
+                            Button("Save") {
                                 saveBet()
                             }
                             .buttonStyle(.borderedProminent)
                             .frame(maxWidth: .infinity)
 
                             Button("Done") {
-                                isFocused = false
+                                focusedField = nil
                             }
                             .buttonStyle(.bordered)
                             .frame(width: 90)
@@ -71,15 +88,15 @@ struct AddBetView: View {
                                 .font(.caption)
                         }
                     }
-                    
-                    // Recent Bets Today (confirmation)
+
+                    // Recent bets today (confirmation)
                     List {
-                        ForEach(todayBets.prefix(10)) { bet in
-                            VStack(alignment: .leading) {
+                        ForEach(todayBets.prefix(15)) { bet in
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text("\(bet.sport) • \(bet.wagerText)")
                                     .font(.body)
 
-                                Text("Bet $\(bet.betAmount, specifier: "%.2f") → Win $\(bet.payoutAmount, specifier: "%.2f")")
+                                Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
@@ -87,37 +104,79 @@ struct AddBetView: View {
                     }
                 }
                 .padding()
-                .navigationTitle("BetTracker")
-                .onAppear {
-                    isFocused = true
-                }
+            }
+            .navigationTitle("BetTracker")
+            .onAppear {
+                focusedField = .what
             }
         }
     }
 
     private var todayBets: [Bet] {
         let start = Calendar.current.startOfDay(for: Date())
-        return bets.filter { $0.createdAt >= start }
+        return bets
+            .filter { $0.createdAt >= start }
             .sorted { $0.createdAt > $1.createdAt }
     }
 
     private func saveBet() {
-        guard let parsed = StrictParser.parse(inputText) else {
-            errorMessage = "Use format: Bet X to win Y"
+        errorMessage = nil
+
+        let what = whatText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !what.isEmpty else {
+            errorMessage = "Enter what you bet on (e.g. BOS ML)."
+            focusedField = .what
+            return
+        }
+
+        guard let parsed = SlashAmountParser.parse(amountText) else {
+            errorMessage = "Enter amounts like 5/9.32 (bet/payout)."
+            focusedField = .amount
             return
         }
 
         let bet = Bet(
             sport: lastSport,
-            wagerText: parsed.wager,
+            wagerText: what,
             betAmount: parsed.bet,
             payoutAmount: parsed.payout
         )
-
         context.insert(bet)
 
-        inputText = "" // AUTO CLEAR (your preference)
-        errorMessage = nil
-        isFocused = true
+        // Auto-clear and keep you in the fast loop
+        whatText = ""
+        amountText = ""
+        focusedField = .what
+    }
+
+    private func money(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+    }
+}
+
+// Strict parser: "bet/payout" with decimals allowed, optional $ and spaces
+struct SlashAmountParser {
+    struct Parsed { let bet: Double; let payout: Double }
+
+    static func parse(_ input: String) -> Parsed? {
+        // Accept: 5/9.32, $5 / $9.32, 5.00/9.32
+        let cleaned = input
+            .replacingOccurrences(of: "$", with: "")
+            .replacingOccurrences(of: " ", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let parts = cleaned.split(separator: "/")
+        guard parts.count == 2 else { return nil }
+
+        guard let bet = Double(parts[0]),
+              let payout = Double(parts[1]),
+              bet > 0, payout > 0 else { return nil }
+
+        return Parsed(bet: bet, payout: payout)
     }
 }
