@@ -46,12 +46,14 @@ struct AddBetView: View {
                             .font(.headline)
 
                         TextField("BOS ML", text: $whatText)
-                            .textInputAutocapitalization(.characters) // helps team abbrevs
+                            .textInputAutocapitalization(.never)
                             .autocorrectionDisabled(true)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(12)
-                            .focused($focusedField, equals: .what)
+                            .onChange(of: whatText) { _, newValue in
+                                let upper = newValue.uppercased()
+                                if upper != newValue {
+                                    whatText = upper
+                                }
+                            }
                     }
 
                     // Amounts box

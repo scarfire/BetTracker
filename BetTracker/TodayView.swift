@@ -11,45 +11,83 @@ import SwiftData
 struct TodayView: View {
     @Query private var bets: [Bet]
 
+    @State private var sportFilter: String = "All"   // "All" or "NHL" etc.
+
     var body: some View {
         NavigationStack {
-            List {
-                ForEach(todayBets) { bet in
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("\(bet.sport) • \(bet.wagerText)")
-                                .foregroundColor(colorForBetTitle(bet))
+            VStack(spacing: 0) {
 
-                            Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                // Filter bar
+                HStack {
+                    Text("Sport")
+                        .font(.headline)
 
-                        Spacer()
+                    Spacer()
 
-                        if let net = bet.net {
-                            Text(money(net))
-                                .foregroundColor(net > 0 ? .blue : (net < 0 ? .red : .gray))
-                                .fontWeight(.semibold)
-                        } else {
-                            Text("Pending")
-                                .foregroundColor(.orange)
-                                .font(.caption)
+                    Picker("Sport Filter", selection: $sportFilter) {
+                        Text("All").tag("All")
+                        ForEach(Sport.allCases) { sport in
+                            Text(sport.rawValue).tag(sport.rawValue)
                         }
                     }
-                    .padding(.vertical, 4)
+                    .pickerStyle(.menu)
+                }
+                .padding(.horizontal)
+                .padding(.top, 10)
+                .padding(.bottom, 8)
+
+                List {
+                    ForEach(filteredTodayBetsChronological) { bet in
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("\(bet.sport) • \(bet.wagerText)")
+                                    .foregroundColor(colorForBetTitle(bet))
+
+                                Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            if let net = bet.net {
+                                Text(money(net))
+                                    .foregroundColor(net > 0 ? .blue : (net < 0 ? .red : .gray))
+                                    .fontWeight(.semibold)
+                            } else {
+                                Text("Pending")
+                                    .foregroundColor(.orange)
+                                    .font(.caption)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
             }
             .navigationTitle("Today")
         }
     }
 
+    // MARK: - Data
+
     private var todayBets: [Bet] {
         let start = Calendar.current.startOfDay(for: Date())
-        return bets
-            .filter { $0.createdAt >= start }
-            .sorted { $0.createdAt > $1.createdAt }
+        return bets.filter { $0.createdAt >= start }
     }
+
+    // Always oldest -> newest (chronological), regardless of filter
+    private var filteredTodayBetsChronological: [Bet] {
+        let filtered: [Bet]
+        if sportFilter == "All" {
+            filtered = todayBets
+        } else {
+            filtered = todayBets.filter { $0.sport == sportFilter }
+        }
+
+        return filtered.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    // MARK: - UI helpers
 
     private func colorForBetTitle(_ bet: Bet) -> Color {
         guard let net = bet.net else { return .primary }
