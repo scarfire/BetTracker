@@ -2,7 +2,7 @@
 //  TodayView.swift
 //  BetTracker
 //
-//  Created by Todd Stevens on 2/14/26.
+//  Updated: Sportsboard pinned header + sections + animations
 //
 
 import SwiftUI
@@ -15,90 +15,138 @@ struct TodayView: View {
     @State private var sportFilter: String = "All"
     @State private var selectedBet: Bet?
 
+    private let headerHeight: CGFloat = 110
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
+            ZStack(alignment: .top) {
 
-                // Filter bar
-                HStack {
-                    Text("Sport")
-                        .font(.headline)
+                // Main content pushed below the pinned header
+                VStack(spacing: 0) {
+                    Color.clear
+                        .frame(height: headerHeight)
 
-                    Spacer()
-
-                    Picker("Sport Filter", selection: $sportFilter) {
-                        Text("All").tag("All")
-                        ForEach(Sport.allCases) { sport in
-                            Text(sport.rawValue).tag(sport.rawValue)
-                        }
-                    }
-                    .pickerStyle(.menu)
+                    contentBody
                 }
-                .padding(.horizontal)
-                .padding(.top, 10)
-                .padding(.bottom, 8)
 
-                List {
-                    // PENDING
-                    if !pendingBets.isEmpty {
-                        Section("Pending") {
-                            ForEach(pendingBets) { bet in
-                                betRow(bet)
-                            }
-                            .onDelete { offsets in
-                                deleteFrom(offsets, in: pendingBets)
-                            }
-                        }
-                    }
-
-                    // WINS
-                    if !winBets.isEmpty {
-                        Section("Wins") {
-                            ForEach(winBets) { bet in
-                                betRow(bet)
-                            }
-                            .onDelete { offsets in
-                                deleteFrom(offsets, in: winBets)
-                            }
-                        }
-                    }
-
-                    // LOSSES
-                    if !lossBets.isEmpty {
-                        Section("Losses") {
-                            ForEach(lossBets) { bet in
-                                betRow(bet)
-                            }
-                            .onDelete { offsets in
-                                deleteFrom(offsets, in: lossBets)
-                            }
-                        }
-                    }
-
-                    // PUSHES
-                    if !pushBets.isEmpty {
-                        Section("Pushes") {
-                            ForEach(pushBets) { bet in
-                                betRow(bet)
-                            }
-                            .onDelete { offsets in
-                                deleteFrom(offsets, in: pushBets)
-                            }
-                        }
-                    }
-
-                    if pendingBets.isEmpty && winBets.isEmpty && lossBets.isEmpty && pushBets.isEmpty {
-                        Text("No bets entered today.")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                // Smooth movement between sections when net changes
-                .animation(.easeInOut(duration: 0.25), value: animationKey)
+                // Pinned header (stays at top)
+                headerView
             }
-            .navigationTitle("Today")
+            .navigationBarHidden(true)
             .sheet(item: $selectedBet) { bet in
                 UpdateResultSheet(bet: bet)
             }
+        }
+    }
+
+    // MARK: - Header
+
+    private var headerView: some View {
+        ZStack(alignment: .bottomLeading) {
+            Image("sportsboard")
+                .resizable()
+                .scaledToFill()
+                .frame(height: headerHeight)
+                .frame(maxWidth: .infinity)
+                .clipped()
+                .ignoresSafeArea(edges: .top)
+
+            LinearGradient(
+                colors: [Color.black.opacity(0.55), Color.black.opacity(0.15)],
+                startPoint: .bottom,
+                endPoint: .top
+            )
+            .ignoresSafeArea(edges: .top)
+
+            Text("Today")
+                .font(.largeTitle.bold())
+                .foregroundColor(.white)
+                .padding(.horizontal)
+                .padding(.bottom, 12)
+        }
+        .frame(height: headerHeight)
+    }
+
+    // MARK: - Body content
+
+    private var contentBody: some View {
+        VStack(spacing: 0) {
+
+            // Filter bar
+            HStack {
+                Text("Sport")
+                    .font(.headline)
+
+                Spacer()
+
+                Picker("Sport Filter", selection: $sportFilter) {
+                    Text("All").tag("All")
+                    ForEach(Sport.allCases) { sport in
+                        Text(sport.rawValue).tag(sport.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+            .padding(.horizontal)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+
+            List {
+                // PENDING
+                if !pendingBets.isEmpty {
+                    Section("Pending") {
+                        ForEach(pendingBets) { bet in
+                            betRow(bet)
+                        }
+                        .onDelete { offsets in
+                            deleteFrom(offsets, in: pendingBets)
+                        }
+                    }
+                }
+
+                // WINS
+                if !winBets.isEmpty {
+                    Section("Wins") {
+                        ForEach(winBets) { bet in
+                            betRow(bet)
+                        }
+                        .onDelete { offsets in
+                            deleteFrom(offsets, in: winBets)
+                        }
+                    }
+                }
+
+                // LOSSES
+                if !lossBets.isEmpty {
+                    Section("Losses") {
+                        ForEach(lossBets) { bet in
+                            betRow(bet)
+                        }
+                        .onDelete { offsets in
+                            deleteFrom(offsets, in: lossBets)
+                        }
+                    }
+                }
+
+                // PUSHES
+                if !pushBets.isEmpty {
+                    Section("Pushes") {
+                        ForEach(pushBets) { bet in
+                            betRow(bet)
+                        }
+                        .onDelete { offsets in
+                            deleteFrom(offsets, in: pushBets)
+                        }
+                    }
+                }
+
+                if pendingBets.isEmpty && winBets.isEmpty && lossBets.isEmpty && pushBets.isEmpty {
+                    Text("No bets entered today.")
+                        .foregroundColor(.secondary)
+                }
+            }
+            // Smooth movement between sections when net changes
+            .animation(.easeInOut(duration: 0.25), value: animationKey)
         }
     }
 
@@ -175,8 +223,7 @@ struct TodayView: View {
             .sorted { $0.createdAt < $1.createdAt }
     }
 
-    // A simple key that changes whenever the "shape" of results changes,
-    // which helps animate movement between sections.
+    // Helps animate movement between sections when results change
     private var animationKey: String {
         let parts = todayBets
             .sorted { $0.createdAt < $1.createdAt }
@@ -265,10 +312,8 @@ struct UpdateResultSheet: View {
                         .buttonStyle(.bordered)
                 }
 
-                Button("Reset to Pending") {
-                    resetToPending()
-                }
-                .buttonStyle(.bordered)
+                Button("Reset to Pending") { resetToPending() }
+                    .buttonStyle(.bordered)
 
                 Divider()
 
@@ -342,6 +387,7 @@ struct UpdateResultSheet: View {
             return
         }
         withAnimation(.easeInOut(duration: 0.25)) {
+            // record cashout as the actual payout received
             bet.payoutAmount = received
             bet.net = received - bet.betAmount
         }
@@ -353,12 +399,9 @@ struct UpdateResultSheet: View {
             bet.net = nil
             bet.payoutAmount = bet.originalPayoutAmount
         }
-
-        // Reset UI state in the sheet too
         cashoutOn = false
         cashoutText = ""
         error = nil
-
         dismiss()
     }
 
