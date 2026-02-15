@@ -50,10 +50,12 @@ struct AddBetView: View {
                             .autocorrectionDisabled(true)
                             .onChange(of: whatText) { _, newValue in
                                 let upper = newValue.uppercased()
-                                if upper != newValue {
-                                    whatText = upper
-                                }
+                                if upper != newValue { whatText = upper }
                             }
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(12)
+                            .focused($focusedField, equals: .what)
                     }
 
                     // Amounts box
@@ -91,9 +93,9 @@ struct AddBetView: View {
                         }
                     }
 
-                    // Recent bets today (confirmation)
+                    // Recent bets today (confirmation) + swipe to delete
                     List {
-                        ForEach(todayBets.prefix(15)) { bet in
+                        ForEach(recentBetsForList) { bet in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("\(bet.sport) • \(bet.wagerText)")
                                     .font(.body)
@@ -102,7 +104,9 @@ struct AddBetView: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
+                            .padding(.vertical, 4)
                         }
+                        .onDelete(perform: deleteRecentBets)
                     }
                 }
                 .padding()
@@ -114,11 +118,23 @@ struct AddBetView: View {
         }
     }
 
+    // Full list of today's bets (newest first)
     private var todayBets: [Bet] {
         let start = Calendar.current.startOfDay(for: Date())
         return bets
             .filter { $0.createdAt >= start }
             .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    // IMPORTANT: For swipe-to-delete offsets to match, use a concrete Array here.
+    private var recentBetsForList: [Bet] {
+        Array(todayBets.prefix(15))
+    }
+
+    private func deleteRecentBets(at offsets: IndexSet) {
+        for index in offsets {
+            context.delete(recentBetsForList[index])
+        }
     }
 
     private func saveBet() {
@@ -166,7 +182,7 @@ struct SlashAmountParser {
     struct Parsed { let bet: Double; let payout: Double }
 
     static func parse(_ input: String) -> Parsed? {
-        // Accept: 5/9.32, $5 / $9.32, 5.00/9.32
+        // Accept: 5/9.32, $5/$9.32, $5 / $9.32, 5.00/9.32
         let cleaned = input
             .replacingOccurrences(of: "$", with: "")
             .replacingOccurrences(of: " ", with: "")
@@ -182,3 +198,4 @@ struct SlashAmountParser {
         return Parsed(bet: bet, payout: payout)
     }
 }
+
