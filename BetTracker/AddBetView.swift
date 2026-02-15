@@ -13,6 +13,7 @@ struct AddBetView: View {
 
     @AppStorage("lastSport") private var lastSport: String = Sport.nhl.rawValue
 
+    @State private var useNumericKeyboardForWhat: Bool = false
     @State private var whatText: String = ""
     @State private var amountText: String = ""   // format: 5/9.32
     @State private var errorMessage: String?
@@ -45,7 +46,18 @@ struct AddBetView: View {
                         Text("What")
                             .font(.headline)
 
-                        TextField("BOS ML", text: $whatText)
+                        // Quick insert buttons (fast sportsbook-style entry)
+                        HStack(spacing: 10) {
+                            quickAppendButton(label: "ML", token: "ML ", requiresLeadingSpace: true)
+                            quickAppendButton(label: "OVER", token: "OVER ", requiresLeadingSpace: true)
+                            quickAppendButton(label: "UNDER", token: "UNDER ", requiresLeadingSpace: true)
+                            quickAppendButton(label: "PLUS", token: "+", requiresLeadingSpace: true)
+                            quickAppendButton(label: "MINUS", token: "-", requiresLeadingSpace: true)
+                            Spacer()
+                        }
+
+                        TextField("BOS ML   /   OVER 6.5   /   NYR -1.5", text: $whatText)
+                            .keyboardType(useNumericKeyboardForWhat ? .numbersAndPunctuation : .default)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled(true)
                             .onChange(of: whatText) { _, newValue in
@@ -57,6 +69,7 @@ struct AddBetView: View {
                             .cornerRadius(12)
                             .focused($focusedField, equals: .what)
                     }
+
 
                     // Amounts box
                     VStack(alignment: .leading, spacing: 8) {
@@ -166,7 +179,50 @@ struct AddBetView: View {
         whatText = ""
         amountText = ""
         focusedField = .what
+        useNumericKeyboardForWhat = false
     }
+    
+    private func quickAppendButton(label: String, token: String, requiresLeadingSpace: Bool) -> some View {
+        Button(label) {
+            // Switch keyboard AFTER tapping, except for ML
+            if token == "ML " {
+                useNumericKeyboardForWhat = false
+            } else {
+                useNumericKeyboardForWhat = true
+            }
+
+            appendToken(token, requiresLeadingSpace: requiresLeadingSpace)
+
+            // Force keyboard refresh by refocusing
+            focusedField = nil
+            DispatchQueue.main.async {
+                focusedField = .what
+            }
+        }
+        .font(.caption)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color(.systemGray5))
+        .cornerRadius(8)
+    }
+
+    private func appendToken(_ token: String, requiresLeadingSpace: Bool) {
+        // Normalize current text
+        var text = whatText
+
+        // If you already typed a team without a trailing space (e.g., "BOS"), and you tap ML/OVER/UNDER,
+        // we add a space first.
+        if requiresLeadingSpace, !text.isEmpty, !text.hasSuffix(" ") {
+            text += " "
+        }
+
+        // Append the token
+        text += token
+
+        // Force uppercase output
+        whatText = text.uppercased()
+    }
+
 
     private func money(_ value: Double) -> String {
         let formatter = NumberFormatter()
