@@ -70,11 +70,20 @@ struct AddBetView: View {
                             .focused($focusedField, equals: .what)
                     }
 
-
                     // Amounts box
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Bet / Payout")
                             .font(.headline)
+
+                        // Quick bet amount buttons
+                        HStack(spacing: 10) {
+                            amountButton(1)
+                            amountButton(2)
+                            amountButton(3)
+                            amountButton(5)
+                            amountButton(7)
+                            amountButton(10)
+                        }
 
                         TextField("5/9.32", text: $amountText)
                             .keyboardType(.numbersAndPunctuation)
@@ -223,6 +232,29 @@ struct AddBetView: View {
         whatText = text.uppercased()
     }
 
+    private func amountButton(_ value: Double) -> some View {
+        Button {
+            // Replace whatever is there and add "/" immediately
+            if value == floor(value) {
+                amountText = "\(Int(value))/"
+            } else {
+                amountText = "\(value)/"
+            }
+
+            // Jump focus to amount field (and refresh focus)
+            focusedField = nil
+            DispatchQueue.main.async {
+                focusedField = .amount
+            }
+        } label: {
+            Text(value == floor(value) ? "\(Int(value))" : "\(value)")
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(Color(.systemGray5))
+                .cornerRadius(10)
+        }
+    }
 
     private func money(_ value: Double) -> String {
         let formatter = NumberFormatter()
