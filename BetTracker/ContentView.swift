@@ -20,14 +20,14 @@ enum Sport: String, CaseIterable, Identifiable {
 struct ContentView: View {
     var body: some View {
         TabView {
-            AddBetView()
-                .tabItem {
-                    Label("Add Bet", systemImage: "plus.circle.fill")
-                }
-
             TodayView()
                 .tabItem {
                     Label("Today", systemImage: "calendar")
+                }
+
+            AddBetView()
+                .tabItem {
+                    Label("Add Bet", systemImage: "plus.circle.fill")
                 }
 
             SummaryView()
