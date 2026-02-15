@@ -12,7 +12,7 @@ struct TodayView: View {
     @Environment(\.modelContext) private var context
     @Query private var bets: [Bet]
 
-    @State private var sportFilter: String = "All"   // "All" or "NHL" etc.
+    @State private var sportFilter: String = "All"
     @State private var selectedBet: Bet?
 
     var body: some View {
@@ -39,40 +39,61 @@ struct TodayView: View {
                 .padding(.bottom, 8)
 
                 List {
-                    ForEach(filteredTodayBetsChronological) { bet in
-                        Button {
-                            selectedBet = bet
-                        } label: {
-                            HStack(alignment: .top) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("\(bet.sport) • \(bet.wagerText)")
-                                        .fontWeight(.semibold)
-                                    
-                                    Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
-                                        .font(.caption)
-                                        .opacity(0.9)
-                                }
-                                
-                                Spacer()
-                                
-                                if let net = bet.net {
-                                    Text(money(net))
-                                        .fontWeight(.bold)
-                                } else {
-                                    Text("Pending")
-                                        .font(.caption)
-                                        .foregroundColor(.orange)
-                                }
+                    // PENDING
+                    if !pendingBets.isEmpty {
+                        Section("Pending") {
+                            ForEach(pendingBets) { bet in
+                                betRow(bet)
                             }
-                            .padding(10)
-                            .background(backgroundColor(for: bet))
-                            .foregroundColor(foregroundColor(for: bet))
-                            .cornerRadius(10)
-                            .padding(.vertical, 2)
+                            .onDelete { offsets in
+                                deleteFrom(offsets, in: pendingBets)
+                            }
                         }
                     }
-                    .onDelete(perform: deleteBets)
+
+                    // WINS
+                    if !winBets.isEmpty {
+                        Section("Wins") {
+                            ForEach(winBets) { bet in
+                                betRow(bet)
+                            }
+                            .onDelete { offsets in
+                                deleteFrom(offsets, in: winBets)
+                            }
+                        }
+                    }
+
+                    // LOSSES
+                    if !lossBets.isEmpty {
+                        Section("Losses") {
+                            ForEach(lossBets) { bet in
+                                betRow(bet)
+                            }
+                            .onDelete { offsets in
+                                deleteFrom(offsets, in: lossBets)
+                            }
+                        }
+                    }
+
+                    // PUSHES
+                    if !pushBets.isEmpty {
+                        Section("Pushes") {
+                            ForEach(pushBets) { bet in
+                                betRow(bet)
+                            }
+                            .onDelete { offsets in
+                                deleteFrom(offsets, in: pushBets)
+                            }
+                        }
+                    }
+
+                    if pendingBets.isEmpty && winBets.isEmpty && lossBets.isEmpty && pushBets.isEmpty {
+                        Text("No bets entered today.")
+                            .foregroundColor(.secondary)
+                    }
                 }
+                // Smooth movement between sections when net changes
+                .animation(.easeInOut(duration: 0.25), value: animationKey)
             }
             .navigationTitle("Today")
             .sheet(item: $selectedBet) { bet in
@@ -81,38 +102,112 @@ struct TodayView: View {
         }
     }
 
+    // MARK: - Row
+
+    @ViewBuilder
+    private func betRow(_ bet: Bet) -> some View {
+        Button {
+            selectedBet = bet
+        } label: {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(bet.sport) • \(bet.wagerText)")
+                        .fontWeight(.semibold)
+
+                    Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
+                        .font(.caption)
+                        .opacity(0.9)
+                }
+
+                Spacer()
+
+                if let net = bet.net {
+                    Text(money(net))
+                        .fontWeight(.bold)
+                } else {
+                    Text("Pending")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+            .padding(10)
+            .background(backgroundColor(for: bet))
+            .foregroundColor(foregroundColor(for: bet))
+            .cornerRadius(10)
+            .padding(.vertical, 2)
+            // Subtle per-row animation when result is set
+            .animation(.easeInOut(duration: 0.25), value: bet.net)
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Data
 
     private var todayBets: [Bet] {
         let start = Calendar.current.startOfDay(for: Date())
-        return bets.filter { $0.createdAt >= start }
+        let filtered = bets.filter { $0.createdAt >= start }
+        if sportFilter == "All" { return filtered }
+        return filtered.filter { $0.sport == sportFilter }
     }
 
-    // Always oldest -> newest (entry order), regardless of filter
-    private var filteredTodayBetsChronological: [Bet] {
-        let filtered: [Bet]
-        if sportFilter == "All" {
-            filtered = todayBets
-        } else {
-            filtered = todayBets.filter { $0.sport == sportFilter }
-        }
-        return filtered.sorted { $0.createdAt < $1.createdAt }
+    // Always oldest -> newest (entry order), within each section
+    private var pendingBets: [Bet] {
+        todayBets
+            .filter { $0.net == nil }
+            .sorted { $0.createdAt < $1.createdAt }
     }
 
-    private func deleteBets(at offsets: IndexSet) {
-        let items = filteredTodayBetsChronological
+    private var winBets: [Bet] {
+        todayBets
+            .filter { ($0.net ?? 0) > 0 }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private var lossBets: [Bet] {
+        todayBets
+            .filter { ($0.net ?? 0) < 0 }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    private var pushBets: [Bet] {
+        todayBets
+            .filter { $0.net == 0 }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
+    // A simple key that changes whenever the "shape" of results changes,
+    // which helps animate movement between sections.
+    private var animationKey: String {
+        let parts = todayBets
+            .sorted { $0.createdAt < $1.createdAt }
+            .map { bet in
+                if let net = bet.net {
+                    return net > 0 ? "W" : (net < 0 ? "L" : "P")
+                } else {
+                    return "N"
+                }
+            }
+        return parts.joined()
+    }
+
+    private func deleteFrom(_ offsets: IndexSet, in array: [Bet]) {
         for index in offsets {
-            context.delete(items[index])
+            context.delete(array[index])
         }
     }
 
     // MARK: - UI helpers
 
-    private func colorForBetTitle(_ bet: Bet) -> Color {
-        guard let net = bet.net else { return .primary }
-        if net > 0 { return .blue }
-        if net < 0 { return .red }
-        return .primary
+    private func backgroundColor(for bet: Bet) -> Color {
+        guard let net = bet.net else { return Color.clear }
+        if net > 0 { return Color.blue.opacity(0.85) }     // WIN
+        if net < 0 { return Color.red.opacity(0.85) }      // LOSS
+        return Color.gray.opacity(0.7)                      // PUSH
+    }
+
+    private func foregroundColor(for bet: Bet) -> Color {
+        guard bet.net != nil else { return .primary }
+        return .white
     }
 
     private func money(_ value: Double) -> String {
@@ -123,48 +218,17 @@ struct TodayView: View {
         formatter.maximumFractionDigits = 2
         return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
-        
-    private func backgroundColor(for bet: Bet) -> Color {
-        guard let net = bet.net else { return Color.clear }
-
-        if net > 0 {
-            return Color.blue.opacity(0.85)   // WIN
-        } else if net < 0 {
-            return Color.red.opacity(0.85)    // LOSS
-        } else {
-            return Color.gray.opacity(0.7)    // PUSH
-        }
-    }
-
-    private func foregroundColor(for bet: Bet) -> Color {
-        guard bet.net != nil else { return .primary }
-        return .white
-    }
-
 }
 
 // MARK: - Update Result Sheet
 
 struct UpdateResultSheet: View {
     @Environment(\.dismiss) private var dismiss
-
     let bet: Bet
 
     @State private var cashoutOn: Bool = false
     @State private var cashoutText: String = ""
     @State private var error: String?
-
-    private enum Selection {
-        case none, win, loss, push
-    }
-
-    // NONE selected while pending
-    private var selection: Selection {
-        guard let net = bet.net else { return .none }
-        if net > 0 { return .win }
-        if net < 0 { return .loss }
-        return .push
-    }
 
     var body: some View {
         NavigationStack {
@@ -189,7 +253,7 @@ struct UpdateResultSheet: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Quick result buttons
+                // Simple buttons (no "selected" visuals)
                 HStack(spacing: 12) {
                     Button("WIN") { applyWin() }
                         .buttonStyle(.bordered)
@@ -200,10 +264,9 @@ struct UpdateResultSheet: View {
                     Button("PUSH") { applyPush() }
                         .buttonStyle(.bordered)
                 }
-                
+
                 Divider()
 
-                // Cash Out
                 VStack(alignment: .leading, spacing: 10) {
                     Toggle("Cash Out", isOn: $cashoutOn)
                         .onChange(of: cashoutOn) { _, newValue in
@@ -223,7 +286,7 @@ struct UpdateResultSheet: View {
                             .cornerRadius(12)
 
                         Button("Apply Cash Out") { applyCashout() }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.bordered)
 
                         if let error {
                             Text(error)
@@ -246,17 +309,23 @@ struct UpdateResultSheet: View {
     }
 
     private func applyWin() {
-        bet.net = bet.payoutAmount - bet.betAmount
+        withAnimation(.easeInOut(duration: 0.25)) {
+            bet.net = bet.payoutAmount - bet.betAmount
+        }
         dismiss()
     }
 
     private func applyLoss() {
-        bet.net = -bet.betAmount
+        withAnimation(.easeInOut(duration: 0.25)) {
+            bet.net = -bet.betAmount
+        }
         dismiss()
     }
 
     private func applyPush() {
-        bet.net = 0
+        withAnimation(.easeInOut(duration: 0.25)) {
+            bet.net = 0
+        }
         dismiss()
     }
 
@@ -267,9 +336,10 @@ struct UpdateResultSheet: View {
             error = "Enter a valid amount (like 3.80)."
             return
         }
-        // Record cashout as actual payout received
-        bet.payoutAmount = received
-        bet.net = received - bet.betAmount
+        withAnimation(.easeInOut(duration: 0.25)) {
+            bet.payoutAmount = received
+            bet.net = received - bet.betAmount
+        }
         dismiss()
     }
 
