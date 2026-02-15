@@ -5,7 +5,6 @@
 //  Created by Todd Stevens on 2/14/26.
 //
 
-
 import Foundation
 import SwiftData
 
@@ -20,7 +19,9 @@ final class Bet {
     var betAmount: Double
     var payoutAmount: Double
 
-    var status: String   // PENDING, WIN, LOSS, PUSH, CASHOUT
+    // NEW: keeps the original payout so Reset can restore after Cash Out edits payoutAmount
+    var originalPayoutAmount: Double
+
     var net: Double?
 
     init(
@@ -29,7 +30,7 @@ final class Bet {
         wagerText: String,
         betAmount: Double,
         payoutAmount: Double,
-        status: String = "PENDING",
+        originalPayoutAmount: Double? = nil,
         net: Double? = nil
     ) {
         self.id = UUID()
@@ -38,7 +39,7 @@ final class Bet {
         self.wagerText = wagerText
         self.betAmount = betAmount
         self.payoutAmount = payoutAmount
-        self.status = status
+        self.originalPayoutAmount = originalPayoutAmount ?? payoutAmount
         self.net = net
     }
 }

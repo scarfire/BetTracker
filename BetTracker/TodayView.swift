@@ -265,6 +265,11 @@ struct UpdateResultSheet: View {
                         .buttonStyle(.bordered)
                 }
 
+                Button("Reset to Pending") {
+                    resetToPending()
+                }
+                .buttonStyle(.bordered)
+
                 Divider()
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -340,6 +345,20 @@ struct UpdateResultSheet: View {
             bet.payoutAmount = received
             bet.net = received - bet.betAmount
         }
+        dismiss()
+    }
+
+    private func resetToPending() {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            bet.net = nil
+            bet.payoutAmount = bet.originalPayoutAmount
+        }
+
+        // Reset UI state in the sheet too
+        cashoutOn = false
+        cashoutText = ""
+        error = nil
+
         dismiss()
     }
 

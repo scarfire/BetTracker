@@ -157,7 +157,8 @@ struct AddBetView: View {
             sport: lastSport,
             wagerText: what,
             betAmount: parsed.bet,
-            payoutAmount: parsed.payout
+            payoutAmount: parsed.payout,
+            originalPayoutAmount: parsed.payout
         )
         context.insert(bet)
 
