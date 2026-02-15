@@ -46,28 +46,30 @@ struct TodayView: View {
                             HStack(alignment: .top) {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("\(bet.sport) • \(bet.wagerText)")
-                                        .foregroundColor(colorForBetTitle(bet))
-
+                                        .fontWeight(.semibold)
+                                    
                                     Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
                                         .font(.caption)
-                                        .foregroundColor(.secondary)
+                                        .opacity(0.9)
                                 }
-
+                                
                                 Spacer()
-
+                                
                                 if let net = bet.net {
                                     Text(money(net))
-                                        .foregroundColor(net > 0 ? .blue : (net < 0 ? .red : .gray))
-                                        .fontWeight(.semibold)
+                                        .fontWeight(.bold)
                                 } else {
                                     Text("Pending")
-                                        .foregroundColor(.orange)
                                         .font(.caption)
+                                        .foregroundColor(.orange)
                                 }
                             }
-                            .padding(.vertical, 4)
+                            .padding(10)
+                            .background(backgroundColor(for: bet))
+                            .foregroundColor(foregroundColor(for: bet))
+                            .cornerRadius(10)
+                            .padding(.vertical, 2)
                         }
-                        .buttonStyle(.plain)
                     }
                     .onDelete(perform: deleteBets)
                 }
@@ -121,6 +123,24 @@ struct TodayView: View {
         formatter.maximumFractionDigits = 2
         return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
+        
+    private func backgroundColor(for bet: Bet) -> Color {
+        guard let net = bet.net else { return Color.clear }
+
+        if net > 0 {
+            return Color.blue.opacity(0.85)   // WIN
+        } else if net < 0 {
+            return Color.red.opacity(0.85)    // LOSS
+        } else {
+            return Color.gray.opacity(0.7)    // PUSH
+        }
+    }
+
+    private func foregroundColor(for bet: Bet) -> Color {
+        guard bet.net != nil else { return .primary }
+        return .white
+    }
+
 }
 
 // MARK: - Update Result Sheet
