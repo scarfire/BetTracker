@@ -136,6 +136,10 @@ struct AddBetView: View {
             .navigationTitle("BetTracker")
             .onAppear {
                 focusedField = .what
+                applyDefaultBetPrefixIfNeeded(force: true)
+            }
+            .onChange(of: lastSport) { _, _ in
+                applyDefaultBetPrefixIfNeeded(force: true)
             }
         }
     }
@@ -174,6 +178,7 @@ struct AddBetView: View {
             focusedField = .amount
             return
         }
+        setLastBetAmount(parsed.bet, for: lastSport)
 
         let bet = Bet(
             sport: lastSport,
@@ -187,6 +192,7 @@ struct AddBetView: View {
         // Auto-clear and keep you in the fast loop
         whatText = ""
         amountText = ""
+        applyDefaultBetPrefixIfNeeded(force: true)   // prefill lastBet/
         focusedField = .what
         useNumericKeyboardForWhat = false
     }
@@ -234,14 +240,13 @@ struct AddBetView: View {
 
     private func amountButton(_ value: Double) -> some View {
         Button {
-            // Replace whatever is there and add "/" immediately
-            if value == floor(value) {
-                amountText = "\(Int(value))/"
-            } else {
-                amountText = "\(value)/"
-            }
+            // Remember default bet amount for current sport
+            setLastBetAmount(value, for: lastSport)
 
-            // Jump focus to amount field (and refresh focus)
+            // Replace whatever is there and add "/" immediately
+            amountText = betPrefix(value)
+
+            // Jump focus to amount field
             focusedField = nil
             DispatchQueue.main.async {
                 focusedField = .amount
@@ -253,6 +258,38 @@ struct AddBetView: View {
                 .padding(.vertical, 10)
                 .background(Color(.systemGray5))
                 .cornerRadius(10)
+        }
+    }
+
+    private func betDefaultsKey(for sport: String) -> String {
+        "lastBetAmount_\(sport)"
+    }
+
+    private func getLastBetAmount(for sport: String) -> Double? {
+        let key = betDefaultsKey(for: sport)
+        let v = UserDefaults.standard.double(forKey: key)
+        return v > 0 ? v : nil
+    }
+
+    private func setLastBetAmount(_ value: Double, for sport: String) {
+        let key = betDefaultsKey(for: sport)
+        UserDefaults.standard.set(value, forKey: key)
+    }
+
+    private func betPrefix(_ value: Double) -> String {
+        if value == floor(value) {
+            return "\(Int(value))/"
+        } else {
+            return "\(value)/"
+        }
+    }
+
+    private func applyDefaultBetPrefixIfNeeded(force: Bool = false) {
+        guard let last = getLastBetAmount(for: lastSport) else { return }
+
+        // Only overwrite when asked, or when the field is empty.
+        if force || amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            amountText = betPrefix(last)
         }
     }
 
