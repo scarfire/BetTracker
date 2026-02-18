@@ -11,7 +11,16 @@ import SwiftData
 @Model
 final class Bet {
     var id: UUID
+
+    /// When you entered the bet in the app (placedAt)
     var createdAt: Date
+
+    /// The date the event resolves (game day / last leg date for multi-day parlay)
+    /// Store as a Date, but treat it as "day-level" in filtering.
+    var eventDate: Date
+
+    /// When you recorded the result (WIN/LOSS/PUSH/CASHOUT). Nil means pending.
+    var settledAt: Date?
 
     var sport: String
     var wagerText: String
@@ -19,13 +28,16 @@ final class Bet {
     var betAmount: Double
     var payoutAmount: Double
 
-    // NEW: keeps the original payout so Reset can restore after Cash Out edits payoutAmount
+    /// Keeps the original payout so Reset can restore after Cash Out edits payoutAmount
     var originalPayoutAmount: Double
 
+    /// nil = pending, >0 win, <0 loss, 0 push
     var net: Double?
 
     init(
         createdAt: Date = Date(),
+        eventDate: Date = Date(),
+        settledAt: Date? = nil,
         sport: String,
         wagerText: String,
         betAmount: Double,
@@ -35,6 +47,8 @@ final class Bet {
     ) {
         self.id = UUID()
         self.createdAt = createdAt
+        self.eventDate = eventDate
+        self.settledAt = settledAt
         self.sport = sport
         self.wagerText = wagerText
         self.betAmount = betAmount
@@ -43,3 +57,4 @@ final class Bet {
         self.net = net
     }
 }
+

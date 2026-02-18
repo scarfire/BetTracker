@@ -2,7 +2,7 @@
 //  AddBetView.swift
 //  BetTracker
 //
-//  Created by Todd Stevens on 2/14/26.
+//  Updated: thumb-friendly Save near Bet/Payout + dismiss keyboard on Save + toast confirmation
 //
 
 import SwiftUI
@@ -18,150 +18,177 @@ struct AddBetView: View {
     @State private var amountText: String = ""   // format: 5/9.32
     @State private var errorMessage: String?
 
+    // Event date (game day / last leg date for parlays)
+    @State private var eventDate: Date = Date()
+    @State private var showEventDatePicker: Bool = false
+
+    // Toast
+    @State private var showToast: Bool = false
+    @State private var toastText: String = "Saved"
+
     @FocusState private var focusedField: Field?
     enum Field { case what, amount }
 
-    @Query private var bets: [Bet]
-
     var body: some View {
         NavigationStack {
-            ZStack {
-                // Tap anywhere to dismiss keyboard
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture { focusedField = nil }
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    VStack(spacing: 14) {
 
-                VStack(spacing: 16) {
-
-                    // Sport Picker (remembers last)
-                    Picker("Sport", selection: $lastSport) {
-                        ForEach(Sport.allCases) { sport in
-                            Text(sport.rawValue).tag(sport.rawValue)
+                        // Sport Picker (remembers last)
+                        Picker("Sport", selection: $lastSport) {
+                            ForEach(Sport.allCases) { sport in
+                                Text(sport.rawValue).tag(sport.rawValue)
+                            }
                         }
-                    }
-                    .pickerStyle(.segmented)
+                        .pickerStyle(.segmented)
 
-                    // What box
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("What")
-                            .font(.headline)
+                        // Event Date row (label + tappable date)
+                        HStack {
+                            Text("Event Date")
+                                .font(.headline)
 
-                        // Quick insert buttons (fast sportsbook-style entry)
-                        HStack(spacing: 10) {
-                            quickAppendButton(label: "ML", token: "ML ", requiresLeadingSpace: true)
-                            quickAppendButton(label: "OVER", token: "OVER ", requiresLeadingSpace: true)
-                            quickAppendButton(label: "UNDER", token: "UNDER ", requiresLeadingSpace: true)
-                            quickAppendButton(label: "PLUS", token: "+", requiresLeadingSpace: true)
-                            quickAppendButton(label: "MINUS", token: "-", requiresLeadingSpace: true)
                             Spacer()
-                        }
 
-                        TextField("BOS ML   /   OVER 6.5   /   NYR -1.5", text: $whatText)
-                            .keyboardType(useNumericKeyboardForWhat ? .numbersAndPunctuation : .default)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled(true)
-                            .onChange(of: whatText) { _, newValue in
-                                let upper = newValue.uppercased()
-                                if upper != newValue { whatText = upper }
-                            }
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(12)
-                            .focused($focusedField, equals: .what)
-                    }
-
-                    // Amounts box
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Bet / Payout")
-                            .font(.headline)
-
-                        // Quick bet amount buttons
-                        HStack(spacing: 10) {
-                            amountButton(1)
-                            amountButton(2)
-                            amountButton(3)
-                            amountButton(5)
-                            amountButton(7)
-                            amountButton(10)
-                        }
-
-                        TextField("5/9.32", text: $amountText)
-                            .keyboardType(.numbersAndPunctuation)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled(true)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(12)
-                            .focused($focusedField, equals: .amount)
-
-                        HStack(spacing: 12) {
-                            Button("Save") {
-                                saveBet()
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .frame(maxWidth: .infinity)
-
-                            Button("Done") {
+                            Button {
                                 focusedField = nil
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showEventDatePicker.toggle()
+                                }
+                            } label: {
+                                Text(shortDate(eventDate))
+                                    .fontWeight(.semibold)
                             }
                             .buttonStyle(.bordered)
-                            .frame(width: 90)
                         }
 
-                        if let errorMessage {
-                            Text(errorMessage)
-                                .foregroundColor(.red)
-                                .font(.caption)
-                        }
-                    }
-
-                    // Recent bets today (confirmation) + swipe to delete
-                    List {
-                        ForEach(recentBetsForList) { bet in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("\(bet.sport) • \(bet.wagerText)")
-                                    .font(.body)
-
-                                Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
+                        if showEventDatePicker {
+                            DatePicker(
+                                "",
+                                selection: $eventDate,
+                                displayedComponents: [.date]
+                            )
+                            .datePickerStyle(.graphical)
+                            .labelsHidden()
+                            .onChange(of: eventDate) { _, _ in
+                                normalizeEventDateToStartOfDay()
                             }
-                            .padding(.vertical, 4)
                         }
-                        .onDelete(perform: deleteRecentBets)
+
+                        // What box
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("What")
+                                .font(.headline)
+
+                            // Quick insert buttons
+                            HStack(spacing: 10) {
+                                quickAppendButton(label: "ML", token: "ML ", requiresLeadingSpace: true)
+                                quickAppendButton(label: "OVER", token: "OVER ", requiresLeadingSpace: true)
+                                quickAppendButton(label: "UNDER", token: "UNDER ", requiresLeadingSpace: true)
+                                quickAppendButton(label: "PLUS", token: "+", requiresLeadingSpace: true)
+                                quickAppendButton(label: "MINUS", token: "-", requiresLeadingSpace: true)
+                                Spacer()
+                            }
+
+                            TextField("BOS ML   /   OVER 6.5   /   NYR -1.5", text: $whatText)
+                                .keyboardType(useNumericKeyboardForWhat ? .numbersAndPunctuation : .default)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled(true)
+                                .onChange(of: whatText) { _, newValue in
+                                    let upper = newValue.uppercased()
+                                    if upper != newValue { whatText = upper }
+                                }
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                                .focused($focusedField, equals: .what)
+                        }
+
+                        // Amounts box
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Bet / Payout")
+                                .font(.headline)
+
+                            // Quick bet amount buttons
+                            HStack(spacing: 10) {
+                                amountButton(1)
+                                amountButton(2)
+                                amountButton(3)
+                                amountButton(5)
+                                amountButton(7)
+                                amountButton(10)
+                            }
+
+                            TextField("5/9.32", text: $amountText)
+                                .keyboardType(.numbersAndPunctuation)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled(true)
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(12)
+                                .focused($focusedField, equals: .amount)
+
+                            // Thumb-friendly Save row (right aligned)
+                            HStack(alignment: .top) {
+                                if let errorMessage {
+                                    Text(errorMessage)
+                                        .foregroundColor(.red)
+                                        .font(.caption)
+                                        .lineLimit(2)
+                                } else {
+                                    Spacer(minLength: 0)
+                                }
+
+                                Spacer()
+
+                                Button {
+                                    saveBet()
+                                } label: {
+                                    Text("Save")
+                                        .fontWeight(.semibold)
+                                        .frame(minWidth: 110)
+                                }
+                                .buttonStyle(.borderedProminent)
+                            }
+                            .padding(.top, 2)
+                        }
+
+                        // Bottom spacer so content can scroll above the keyboard
+                        Color.clear
+                            .frame(height: 110)
+                    }
+                    .padding()
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .navigationBarHidden(true)
+                .toolbar {
+                    ToolbarItem(placement: .keyboard) {
+                        HStack {
+                            Spacer()
+                            Button("Done") { focusedField = nil }
+                        }
                     }
                 }
-                .padding()
-            }
-            .navigationTitle("BetTracker")
-            .onAppear {
-                focusedField = .what
-                applyDefaultBetPrefixIfNeeded(force: true)
-            }
-            .onChange(of: lastSport) { _, _ in
-                applyDefaultBetPrefixIfNeeded(force: true)
+                .onAppear {
+                    focusedField = .what
+                    normalizeEventDateToStartOfDay()
+                    applyDefaultBetPrefixIfNeeded(force: true)
+                }
+                .onChange(of: lastSport) { _, _ in
+                    applyDefaultBetPrefixIfNeeded(force: true)
+                }
+
+                // Toast overlay
+                if showToast {
+                    toastView(text: toastText)
+                        .padding(.bottom, 16)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
         }
     }
 
-    // Full list of today's bets (newest first)
-    private var todayBets: [Bet] {
-        let start = Calendar.current.startOfDay(for: Date())
-        return bets
-            .filter { $0.createdAt >= start }
-            .sorted { $0.createdAt > $1.createdAt }
-    }
-
-    // IMPORTANT: For swipe-to-delete offsets to match, use a concrete Array here.
-    private var recentBetsForList: [Bet] {
-        Array(todayBets.prefix(15))
-    }
-
-    private func deleteRecentBets(at offsets: IndexSet) {
-        for index in offsets {
-            context.delete(recentBetsForList[index])
-        }
-    }
+    // MARK: - Save
 
     private func saveBet() {
         errorMessage = nil
@@ -178,28 +205,68 @@ struct AddBetView: View {
             focusedField = .amount
             return
         }
+
         setLastBetAmount(parsed.bet, for: lastSport)
 
         let bet = Bet(
+            createdAt: Date(),
+            eventDate: Calendar.current.startOfDay(for: eventDate),
+            settledAt: nil,
             sport: lastSport,
             wagerText: what,
             betAmount: parsed.bet,
             payoutAmount: parsed.payout,
-            originalPayoutAmount: parsed.payout
+            originalPayoutAmount: parsed.payout,
+            net: nil
         )
+
         context.insert(bet)
 
-        // Auto-clear and keep you in the fast loop
+        // Close keyboard so you can reach the tab bar immediately
+        focusedField = nil
+
+        // Toast confirmation
+        toastText = "Saved ✓"
+        showToastNow()
+
+        // Fast loop reset (keep event date)
         whatText = ""
         amountText = ""
-        applyDefaultBetPrefixIfNeeded(force: true)   // prefill lastBet/
-        focusedField = .what
+        applyDefaultBetPrefixIfNeeded(force: true)
         useNumericKeyboardForWhat = false
     }
-    
+
+    // MARK: - Toast
+
+    private func showToastNow() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showToast = false
+            }
+        }
+    }
+
+    private func toastView(text: String) -> some View {
+        Text(text)
+            .font(.headline)
+            .foregroundColor(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(Color.black.opacity(0.85))
+            )
+            .shadow(radius: 6)
+            .accessibilityLabel(text)
+    }
+
+    // MARK: - What quick buttons
+
     private func quickAppendButton(label: String, token: String, requiresLeadingSpace: Bool) -> some View {
         Button(label) {
-            // Switch keyboard AFTER tapping, except for ML
             if token == "ML " {
                 useNumericKeyboardForWhat = false
             } else {
@@ -208,7 +275,6 @@ struct AddBetView: View {
 
             appendToken(token, requiresLeadingSpace: requiresLeadingSpace)
 
-            // Force keyboard refresh by refocusing
             focusedField = nil
             DispatchQueue.main.async {
                 focusedField = .what
@@ -222,31 +288,21 @@ struct AddBetView: View {
     }
 
     private func appendToken(_ token: String, requiresLeadingSpace: Bool) {
-        // Normalize current text
         var text = whatText
-
-        // If you already typed a team without a trailing space (e.g., "BOS"), and you tap ML/OVER/UNDER,
-        // we add a space first.
         if requiresLeadingSpace, !text.isEmpty, !text.hasSuffix(" ") {
             text += " "
         }
-
-        // Append the token
         text += token
-
-        // Force uppercase output
         whatText = text.uppercased()
     }
 
+    // MARK: - Amount quick buttons + defaults per sport
+
     private func amountButton(_ value: Double) -> some View {
         Button {
-            // Remember default bet amount for current sport
             setLastBetAmount(value, for: lastSport)
-
-            // Replace whatever is there and add "/" immediately
             amountText = betPrefix(value)
 
-            // Jump focus to amount field
             focusedField = nil
             DispatchQueue.main.async {
                 focusedField = .amount
@@ -286,20 +342,22 @@ struct AddBetView: View {
 
     private func applyDefaultBetPrefixIfNeeded(force: Bool = false) {
         guard let last = getLastBetAmount(for: lastSport) else { return }
-
-        // Only overwrite when asked, or when the field is empty.
         if force || amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             amountText = betPrefix(last)
         }
     }
 
-    private func money(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+    // MARK: - Formatting helpers
+
+    private func normalizeEventDateToStartOfDay() {
+        eventDate = Calendar.current.startOfDay(for: eventDate)
+    }
+
+    private func shortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
 }
 
@@ -308,7 +366,6 @@ struct SlashAmountParser {
     struct Parsed { let bet: Double; let payout: Double }
 
     static func parse(_ input: String) -> Parsed? {
-        // Accept: 5/9.32, $5/$9.32, $5 / $9.32, 5.00/9.32
         let cleaned = input
             .replacingOccurrences(of: "$", with: "")
             .replacingOccurrences(of: " ", with: "")

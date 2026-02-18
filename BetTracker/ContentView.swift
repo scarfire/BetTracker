@@ -4,6 +4,7 @@
 //
 //  Created by Todd Stevens on 2/14/26.
 //
+
 import SwiftUI
 import SwiftData
 
@@ -26,15 +27,21 @@ struct ContentView: View {
                     Label("Today", systemImage: "calendar")
                 }
 
+            UpcomingView()
+                .tabItem {
+                    Label("Upcoming", systemImage: "clock")
+                }
+
+            SettledView()
+                .tabItem {
+                    Label("Settled", systemImage: "checkmark.circle")
+                }
+
             AddBetView()
                 .tabItem {
                     Label("Add Bet", systemImage: "plus.circle.fill")
                 }
-
-            SummaryView()
-                .tabItem {
-                    Label("Summary", systemImage: "chart.bar.fill")
-                }
         }
     }
 }
+

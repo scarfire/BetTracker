@@ -2,7 +2,7 @@
 //  TodayView.swift
 //  BetTracker
 //
-//  Updated: Sportsboard pinned header + sections + animations
+//  Updated: Sportsboard pinned header + sections + animations + eventDate + settledAt
 //
 
 import SwiftUI
@@ -141,7 +141,7 @@ struct TodayView: View {
                 }
 
                 if pendingBets.isEmpty && winBets.isEmpty && lossBets.isEmpty && pushBets.isEmpty {
-                    Text("No bets entered today.")
+                    Text("No bets for today.")
                         .foregroundColor(.secondary)
                 }
             }
@@ -193,7 +193,11 @@ struct TodayView: View {
 
     private var todayBets: [Bet] {
         let start = Calendar.current.startOfDay(for: Date())
-        let filtered = bets.filter { $0.createdAt >= start }
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? Date()
+
+        // Today is based on EVENT DATE now (not when you entered it)
+        let filtered = bets.filter { $0.eventDate >= start && $0.eventDate < end }
+
         if sportFilter == "All" { return filtered }
         return filtered.filter { $0.sport == sportFilter }
     }
@@ -284,6 +288,10 @@ struct UpdateResultSheet: View {
                     Text("\(bet.sport) • \(bet.wagerText)")
                         .font(.headline)
 
+                    Text("Event: \(shortDate(bet.eventDate))")
+                        .foregroundColor(.secondary)
+                        .font(.subheadline)
+
                     Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
                         .foregroundColor(.secondary)
                         .font(.subheadline)
@@ -292,6 +300,12 @@ struct UpdateResultSheet: View {
                         Text("Current Net: \(money(net))")
                             .foregroundColor(net > 0 ? .blue : (net < 0 ? .red : .gray))
                             .fontWeight(.semibold)
+
+                        if let settledAt = bet.settledAt {
+                            Text("Settled: \(shortDateTime(settledAt))")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
                     } else {
                         Text("Current: Pending")
                             .foregroundColor(.orange)
@@ -361,6 +375,7 @@ struct UpdateResultSheet: View {
     private func applyWin() {
         withAnimation(.easeInOut(duration: 0.25)) {
             bet.net = bet.payoutAmount - bet.betAmount
+            bet.settledAt = Date()
         }
         dismiss()
     }
@@ -368,6 +383,7 @@ struct UpdateResultSheet: View {
     private func applyLoss() {
         withAnimation(.easeInOut(duration: 0.25)) {
             bet.net = -bet.betAmount
+            bet.settledAt = Date()
         }
         dismiss()
     }
@@ -375,6 +391,7 @@ struct UpdateResultSheet: View {
     private func applyPush() {
         withAnimation(.easeInOut(duration: 0.25)) {
             bet.net = 0
+            bet.settledAt = Date()
         }
         dismiss()
     }
@@ -387,9 +404,9 @@ struct UpdateResultSheet: View {
             return
         }
         withAnimation(.easeInOut(duration: 0.25)) {
-            // record cashout as the actual payout received
             bet.payoutAmount = received
             bet.net = received - bet.betAmount
+            bet.settledAt = Date()
         }
         dismiss()
     }
@@ -398,6 +415,7 @@ struct UpdateResultSheet: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             bet.net = nil
             bet.payoutAmount = bet.originalPayoutAmount
+            bet.settledAt = nil
         }
         cashoutOn = false
         cashoutText = ""
@@ -412,6 +430,20 @@ struct UpdateResultSheet: View {
         formatter.minimumFractionDigits = 2
         formatter.maximumFractionDigits = 2
         return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+    }
+
+    private func shortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+
+    private func shortDateTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 
