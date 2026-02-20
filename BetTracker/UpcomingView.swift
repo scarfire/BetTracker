@@ -1,37 +1,42 @@
-//
-//  UpcomingView.swift
-//  BetTracker
-//
-
 import SwiftUI
 import SwiftData
 
 struct UpcomingView: View {
-    @Environment(\.modelContext) private var context
     @Query private var bets: [Bet]
-
     @State private var sportFilter: String = "All"
-    @State private var selectedBet: Bet?
 
-    private let headerHeight: CGFloat = 110
+    private let headerHeight: CGFloat = 140
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .top) {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
 
-                VStack(spacing: 0) {
-                    Color.clear
-                        .frame(height: headerHeight)
+                    headerView
 
-                    contentBody
+                    filterBar
+                        .padding(.horizontal)
+
+                    if upcomingBets.isEmpty {
+                        Text("No upcoming bets.")
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(upcomingBets) { bet in
+                                upcomingCard(bet)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Spacer(minLength: 20)
                 }
-
-                headerView
             }
-            .navigationBarHidden(true)
-            .sheet(item: $selectedBet) { bet in
-                UpdateResultSheet(bet: bet)
-            }
+            .ignoresSafeArea(edges: .top)
+            .toolbar(.hidden, for: .navigationBar)
+            .background(Color(.systemGroupedBackground))
         }
     }
 
@@ -45,121 +50,90 @@ struct UpcomingView: View {
                 .frame(height: headerHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()
-                .ignoresSafeArea(edges: .top)
 
             LinearGradient(
-                colors: [Color.black.opacity(0.55), Color.black.opacity(0.15)],
+                colors: [Color.black.opacity(0.60), Color.black.opacity(0.10)],
                 startPoint: .bottom,
                 endPoint: .top
             )
-            .ignoresSafeArea(edges: .top)
 
             Text("Upcoming")
-                .font(.largeTitle.bold())
+                .font(.system(size: 44, weight: .bold))
                 .foregroundColor(.white)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
+                .padding(.leading, 16)
+                .padding(.bottom, 14)
         }
         .frame(height: headerHeight)
     }
 
-    // MARK: Body
+    // MARK: Filter
 
-    private var contentBody: some View {
-        VStack(spacing: 0) {
+    private var filterBar: some View {
+        HStack {
+            Text("Sport")
+                .font(.headline)
 
-            HStack {
-                Text("Sport")
-                    .font(.headline)
+            Spacer()
 
-                Spacer()
-
-                Picker("Sport Filter", selection: $sportFilter) {
-                    Text("All").tag("All")
-                    ForEach(Sport.allCases) { sport in
-                        Text(sport.rawValue).tag(sport.rawValue)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-            .padding(.horizontal)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
-
-            List {
-                if upcomingBets.isEmpty {
-                    Text("No upcoming bets.")
-                        .foregroundColor(.secondary)
-                } else {
-                    ForEach(upcomingBets) { bet in
-                        upcomingRow(bet)
-                    }
-                    .onDelete(perform: deleteUpcoming)
+            Picker("Sport Filter", selection: $sportFilter) {
+                Text("All").tag("All")
+                ForEach(Sport.allCases) { sport in
+                    Text(sport.rawValue).tag(sport.rawValue)
                 }
             }
+            .pickerStyle(.menu)
         }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
     // MARK: Data
 
     private var upcomingBets: [Bet] {
-        let start = Calendar.current.startOfDay(for: Date())
+        let now = Date()
+        let filtered = bets.filter { $0.eventDate > now && $0.net == nil }
 
-        let filtered = bets.filter {
-            $0.net == nil && $0.eventDate > start
-        }
-
-        let sportFiltered = sportFilter == "All"
-            ? filtered
-            : filtered.filter { $0.sport == sportFilter }
-
-        return sportFiltered.sorted {
-            if Calendar.current.isDate($0.eventDate, inSameDayAs: $1.eventDate) {
-                return $0.createdAt < $1.createdAt
-            }
-            return $0.eventDate < $1.eventDate
-        }
+        if sportFilter == "All" { return filtered.sorted { $0.eventDate < $1.eventDate } }
+        return filtered
+            .filter { $0.sport == sportFilter }
+            .sorted { $0.eventDate < $1.eventDate }
     }
 
-    private func deleteUpcoming(at offsets: IndexSet) {
-        for index in offsets {
-            context.delete(upcomingBets[index])
+    // MARK: Card
+
+    private func upcomingCard(_ bet: Bet) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(bet.sport) • \(bet.wagerText)")
+                .font(.headline)
+
+            Text("Event: \(shortDate(bet.eventDate))")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+
+            Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
-    }
-
-    @ViewBuilder
-    private func upcomingRow(_ bet: Bet) -> some View {
-        Button {
-            selectedBet = bet
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("\(bet.sport) • \(bet.wagerText)")
-                    .fontWeight(.semibold)
-
-                Text("Event: \(shortDate(bet.eventDate))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.vertical, 6)
-        }
-        .buttonStyle(.plain)
+        .padding(14)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 6)
     }
 
     private func money(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "USD"
+        return f.string(from: NSNumber(value: value)) ?? "$0.00"
     }
 
     private func shortDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: date)
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        return f.string(from: date)
     }
 }
 

@@ -2,7 +2,7 @@
 //  TodayView.swift
 //  BetTracker
 //
-//  Updated: Sportsboard pinned header + sections + animations + eventDate + settledAt
+//  ScrollView header (sportsboard) + sections + animations + eventDate + settledAt
 //
 
 import SwiftUI
@@ -15,31 +15,67 @@ struct TodayView: View {
     @State private var sportFilter: String = "All"
     @State private var selectedBet: Bet?
 
-    private let headerHeight: CGFloat = 110
+    private let headerHeight: CGFloat = 140
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .top) {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14, pinnedViews: []) {
 
-                // Main content pushed below the pinned header
-                VStack(spacing: 0) {
-                    Color.clear
-                        .frame(height: headerHeight)
+                    headerView
 
-                    contentBody
+                    filterBar
+                        .padding(.horizontal)
+
+                    // Sections (custom, not List)
+                    if !pendingBets.isEmpty {
+                        sectionHeader("Pending")
+                            .padding(.horizontal)
+                        cards(pendingBets)
+                    }
+
+                    if !winBets.isEmpty {
+                        sectionHeader("Wins")
+                            .padding(.horizontal)
+                        cards(winBets)
+                    }
+
+                    if !lossBets.isEmpty {
+                        sectionHeader("Losses")
+                            .padding(.horizontal)
+                        cards(lossBets)
+                    }
+
+                    if !pushBets.isEmpty {
+                        sectionHeader("Pushes")
+                            .padding(.horizontal)
+                        cards(pushBets)
+                    }
+
+                    if pendingBets.isEmpty && winBets.isEmpty && lossBets.isEmpty && pushBets.isEmpty {
+                        Text("No bets for today.")
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                            .padding(.bottom, 20)
+                    } else {
+                        Spacer(minLength: 20)
+                    }
                 }
-
-                // Pinned header (stays at top)
-                headerView
+                .padding(.bottom, 28)
             }
-            .navigationBarHidden(true)
+            .toolbar(.hidden, for: .navigationBar)
+            .ignoresSafeArea(edges: .top)
+            .background(Color(.systemGroupedBackground))
+//            .navigationBarTitleDisplayMode(.inline) // keep nav quiet; title lives in header image
             .sheet(item: $selectedBet) { bet in
                 UpdateResultSheet(bet: bet)
             }
+            .animation(.easeInOut(duration: 0.25), value: animationKey)
         }
     }
 
-    // MARK: - Header
+    // MARK: - Header (scrolls away)
 
     private var headerView: some View {
         ZStack(alignment: .bottomLeading) {
@@ -49,160 +85,119 @@ struct TodayView: View {
                 .frame(height: headerHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()
-                .ignoresSafeArea(edges: .top)
 
             LinearGradient(
-                colors: [Color.black.opacity(0.55), Color.black.opacity(0.15)],
+                colors: [Color.black.opacity(0.60), Color.black.opacity(0.10)],
                 startPoint: .bottom,
                 endPoint: .top
             )
-            .ignoresSafeArea(edges: .top)
 
             Text("Today")
-                .font(.largeTitle.bold())
+                .font(.system(size: 44, weight: .bold))
                 .foregroundColor(.white)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
+                .padding(.leading, 16)
+                .padding(.bottom, 14)
         }
         .frame(height: headerHeight)
+        .ignoresSafeArea(edges: .top)
     }
 
-    // MARK: - Body content
+    // MARK: - Filter Bar
 
-    private var contentBody: some View {
-        VStack(spacing: 0) {
+    private var filterBar: some View {
+        HStack {
+            Text("Sport")
+                .font(.headline)
 
-            // Filter bar
-            HStack {
-                Text("Sport")
-                    .font(.headline)
+            Spacer()
 
-                Spacer()
-
-                Picker("Sport Filter", selection: $sportFilter) {
-                    Text("All").tag("All")
-                    ForEach(Sport.allCases) { sport in
-                        Text(sport.rawValue).tag(sport.rawValue)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-            .padding(.horizontal)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
-
-            List {
-                // PENDING
-                if !pendingBets.isEmpty {
-                    Section("Pending") {
-                        ForEach(pendingBets) { bet in
-                            betRow(bet)
-                        }
-                        .onDelete { offsets in
-                            deleteFrom(offsets, in: pendingBets)
-                        }
-                    }
-                }
-
-                // WINS
-                if !winBets.isEmpty {
-                    Section("Wins") {
-                        ForEach(winBets) { bet in
-                            betRow(bet)
-                        }
-                        .onDelete { offsets in
-                            deleteFrom(offsets, in: winBets)
-                        }
-                    }
-                }
-
-                // LOSSES
-                if !lossBets.isEmpty {
-                    Section("Losses") {
-                        ForEach(lossBets) { bet in
-                            betRow(bet)
-                        }
-                        .onDelete { offsets in
-                            deleteFrom(offsets, in: lossBets)
-                        }
-                    }
-                }
-
-                // PUSHES
-                if !pushBets.isEmpty {
-                    Section("Pushes") {
-                        ForEach(pushBets) { bet in
-                            betRow(bet)
-                        }
-                        .onDelete { offsets in
-                            deleteFrom(offsets, in: pushBets)
-                        }
-                    }
-                }
-
-                if pendingBets.isEmpty && winBets.isEmpty && lossBets.isEmpty && pushBets.isEmpty {
-                    Text("No bets for today.")
-                        .foregroundColor(.secondary)
+            Picker("Sport Filter", selection: $sportFilter) {
+                Text("All").tag("All")
+                ForEach(Sport.allCases) { sport in
+                    Text(sport.rawValue).tag(sport.rawValue)
                 }
             }
-            // Smooth movement between sections when net changes
-            .animation(.easeInOut(duration: 0.25), value: animationKey)
+            .pickerStyle(.menu)
         }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
-    // MARK: - Row
+    // MARK: - Section + Cards
 
-    @ViewBuilder
-    private func betRow(_ bet: Bet) -> some View {
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.title3.weight(.semibold))
+            .foregroundColor(.secondary)
+            .padding(.top, 8)
+    }
+
+    private func cards(_ array: [Bet]) -> some View {
+        VStack(spacing: 10) {
+            ForEach(array) { bet in
+                betCard(bet)
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            context.delete(bet)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private func betCard(_ bet: Bet) -> some View {
         Button {
             selectedBet = bet
         } label: {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("\(bet.sport) • \(bet.wagerText)")
-                        .fontWeight(.semibold)
+                        .font(.headline)
+                        .foregroundColor(foregroundColor(for: bet))
 
                     Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
-                        .font(.caption)
-                        .opacity(0.9)
+                        .font(.subheadline)
+                        .foregroundColor(foregroundColor(for: bet).opacity(0.85))
                 }
 
                 Spacer()
 
                 if let net = bet.net {
                     Text(money(net))
-                        .fontWeight(.bold)
+                        .font(.headline.weight(.bold))
+                        .foregroundColor(foregroundColor(for: bet))
                 } else {
                     Text("Pending")
-                        .font(.caption)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundColor(.orange)
                 }
             }
-            .padding(10)
-            .background(backgroundColor(for: bet))
-            .foregroundColor(foregroundColor(for: bet))
-            .cornerRadius(10)
-            .padding(.vertical, 2)
-            // Subtle per-row animation when result is set
+            .padding(14)
+            .background(cardBackground(for: bet))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 6)
             .animation(.easeInOut(duration: 0.25), value: bet.net)
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Data
+    // MARK: - Data (Today uses eventDate)
 
     private var todayBets: [Bet] {
         let start = Calendar.current.startOfDay(for: Date())
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? Date()
 
-        // Today is based on EVENT DATE now (not when you entered it)
-        let filtered = bets.filter { $0.eventDate >= start && $0.eventDate < end }
-
-        if sportFilter == "All" { return filtered }
-        return filtered.filter { $0.sport == sportFilter }
+        let dayFiltered = bets.filter { $0.eventDate >= start && $0.eventDate < end }
+        if sportFilter == "All" { return dayFiltered }
+        return dayFiltered.filter { $0.sport == sportFilter }
     }
 
-    // Always oldest -> newest (entry order), within each section
     private var pendingBets: [Bet] {
         todayBets
             .filter { $0.net == nil }
@@ -227,7 +222,6 @@ struct TodayView: View {
             .sorted { $0.createdAt < $1.createdAt }
     }
 
-    // Helps animate movement between sections when results change
     private var animationKey: String {
         let parts = todayBets
             .sorted { $0.createdAt < $1.createdAt }
@@ -241,22 +235,17 @@ struct TodayView: View {
         return parts.joined()
     }
 
-    private func deleteFrom(_ offsets: IndexSet, in array: [Bet]) {
-        for index in offsets {
-            context.delete(array[index])
-        }
-    }
+    // MARK: - Styling helpers
 
-    // MARK: - UI helpers
-
-    private func backgroundColor(for bet: Bet) -> Color {
-        guard let net = bet.net else { return Color.clear }
-        if net > 0 { return Color.blue.opacity(0.85) }     // WIN
-        if net < 0 { return Color.red.opacity(0.85) }      // LOSS
-        return Color.gray.opacity(0.7)                      // PUSH
+    private func cardBackground(for bet: Bet) -> Color {
+        guard let net = bet.net else { return .white }
+        if net > 0 { return Color.blue.opacity(0.85) }
+        if net < 0 { return Color.red.opacity(0.85) }
+        return Color.gray.opacity(0.70)
     }
 
     private func foregroundColor(for bet: Bet) -> Color {
+        // Pending cards are white with normal text
         guard bet.net != nil else { return .primary }
         return .white
     }
@@ -270,6 +259,10 @@ struct TodayView: View {
         return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
 }
+
+// MARK: - Update Result Sheet (keep your existing one below this)
+// Keep EXACTLY your current UpdateResultSheet block here.
+
 
 // MARK: - Update Result Sheet
 

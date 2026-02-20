@@ -1,32 +1,42 @@
-//
-//  SettledView.swift
-//  BetTracker
-//
-
 import SwiftUI
 import SwiftData
 
 struct SettledView: View {
     @Query private var bets: [Bet]
-
     @State private var sportFilter: String = "All"
 
-    private let headerHeight: CGFloat = 110
+    private let headerHeight: CGFloat = 140
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .top) {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
 
-                VStack(spacing: 0) {
-                    Color.clear
-                        .frame(height: headerHeight)
+                    headerView
 
-                    contentBody
+                    filterBar
+                        .padding(.horizontal)
+
+                    if settledBets.isEmpty {
+                        Text("No settled bets.")
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(settledBets) { bet in
+                                settledCard(bet)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    Spacer(minLength: 20)
                 }
-
-                headerView
             }
-            .navigationBarHidden(true)
+            .ignoresSafeArea(edges: .top)
+            .toolbar(.hidden, for: .navigationBar)
+            .background(Color(.systemGroupedBackground))
         }
     }
 
@@ -40,58 +50,44 @@ struct SettledView: View {
                 .frame(height: headerHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()
-                .ignoresSafeArea(edges: .top)
 
             LinearGradient(
-                colors: [Color.black.opacity(0.55), Color.black.opacity(0.15)],
+                colors: [Color.black.opacity(0.60), Color.black.opacity(0.10)],
                 startPoint: .bottom,
                 endPoint: .top
             )
-            .ignoresSafeArea(edges: .top)
 
             Text("Settled")
-                .font(.largeTitle.bold())
+                .font(.system(size: 44, weight: .bold))
                 .foregroundColor(.white)
-                .padding(.horizontal)
-                .padding(.bottom, 12)
+                .padding(.leading, 16)
+                .padding(.bottom, 14)
         }
         .frame(height: headerHeight)
     }
 
-    // MARK: Body
+    // MARK: Filter
 
-    private var contentBody: some View {
-        VStack(spacing: 0) {
+    private var filterBar: some View {
+        HStack {
+            Text("Sport")
+                .font(.headline)
 
-            HStack {
-                Text("Sport")
-                    .font(.headline)
+            Spacer()
 
-                Spacer()
-
-                Picker("Sport Filter", selection: $sportFilter) {
-                    Text("All").tag("All")
-                    ForEach(Sport.allCases) { sport in
-                        Text(sport.rawValue).tag(sport.rawValue)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
-            .padding(.horizontal)
-            .padding(.top, 10)
-            .padding(.bottom, 8)
-
-            List {
-                if settledBets.isEmpty {
-                    Text("No settled bets.")
-                        .foregroundColor(.secondary)
-                } else {
-                    ForEach(settledBets) { bet in
-                        settledRow(bet)
-                    }
+            Picker("Sport Filter", selection: $sportFilter) {
+                Text("All").tag("All")
+                ForEach(Sport.allCases) { sport in
+                    Text(sport.rawValue).tag(sport.rawValue)
                 }
             }
+            .pickerStyle(.menu)
         }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
     // MARK: Data
@@ -99,40 +95,50 @@ struct SettledView: View {
     private var settledBets: [Bet] {
         let filtered = bets.filter { $0.net != nil }
 
-        let sportFiltered = sportFilter == "All"
-            ? filtered
-            : filtered.filter { $0.sport == sportFilter }
-
-        return sportFiltered.sorted {
-            $0.settledAt ?? $0.createdAt >
-            $1.settledAt ?? $1.createdAt
+        if sportFilter == "All" {
+            return filtered.sorted { ($0.settledAt ?? Date()) > ($1.settledAt ?? Date()) }
         }
+
+        return filtered
+            .filter { $0.sport == sportFilter }
+            .sorted { ($0.settledAt ?? Date()) > ($1.settledAt ?? Date()) }
     }
 
-    @ViewBuilder
-    private func settledRow(_ bet: Bet) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    // MARK: Card
+
+    private func settledCard(_ bet: Bet) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             Text("\(bet.sport) • \(bet.wagerText)")
-                .fontWeight(.semibold)
+                .font(.headline)
 
-            Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            if let net = bet.net {
-                Text(money(net))
-                    .fontWeight(.bold)
-                    .foregroundColor(net > 0 ? .blue : (net < 0 ? .red : .gray))
+            if let settledAt = bet.settledAt {
+                Text("Settled: \(shortDate(settledAt))")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
             }
+
+            Text("Net: \(money(bet.net ?? 0))")
+                .font(.headline)
+                .foregroundColor((bet.net ?? 0) > 0 ? .blue :
+                                 (bet.net ?? 0) < 0 ? .red : .gray)
         }
-        .padding(.vertical, 6)
+        .padding(14)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 6)
     }
 
     private func money(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencyCode = "USD"
-        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "USD"
+        return f.string(from: NSNumber(value: value)) ?? "$0.00"
+    }
+
+    private func shortDate(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        return f.string(from: date)
     }
 }
 
