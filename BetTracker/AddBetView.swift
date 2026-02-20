@@ -161,6 +161,10 @@ struct AddBetView: View {
                 .onAppear {
                     focusedField = .what
                     eventDate = Calendar.current.startOfDay(for: eventDate)
+                    applyDefaultBetPrefixIfNeeded(force: true)
+                }
+                .onChange(of: lastSport) { _, _ in
+                    applyDefaultBetPrefixIfNeeded(force: true)
                 }
 
                 if showToast {
@@ -198,6 +202,8 @@ struct AddBetView: View {
             return
         }
 
+        setLastBetAmount(parsed.bet, for: lastSport)
+
         let bet = Bet(
             createdAt: Date(),
             eventDate: eventDate,
@@ -223,6 +229,8 @@ struct AddBetView: View {
         whatText = ""
         whatAmountText = ""
         amountText = ""
+        applyDefaultBetPrefixIfNeeded(force: true)
+
     }
 
     private func quickAppendButton(_ label: String, _ token: String, nextFocus: Field) -> some View {
@@ -292,6 +300,31 @@ struct AddBetView: View {
         formatter.dateStyle = .medium
         return formatter.string(from: date)
     }
+    
+    private func lastBetKey(for sport: String) -> String {
+        "lastBetAmount_\(sport)"
+    }
+
+    private func getLastBetAmount(for sport: String) -> Double? {
+        let v = UserDefaults.standard.double(forKey: lastBetKey(for: sport))
+        return v > 0 ? v : nil
+    }
+
+    private func setLastBetAmount(_ value: Double, for sport: String) {
+        UserDefaults.standard.set(value, forKey: lastBetKey(for: sport))
+    }
+
+    private func betPrefix(_ value: Double) -> String {
+        value == floor(value) ? "\(Int(value))/" : "\(value)/"
+    }
+
+    private func applyDefaultBetPrefixIfNeeded(force: Bool = false) {
+        guard let last = getLastBetAmount(for: lastSport) else { return }
+        if force || amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            amountText = betPrefix(last)
+        }
+    }
+
 }
 
 struct SlashAmountParser {
