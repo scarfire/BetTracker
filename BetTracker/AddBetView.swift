@@ -76,11 +76,11 @@ struct AddBetView: View {
                                 .font(.headline)
 
                             HStack(spacing: 10) {
-                                quickAppendButton("ML", "ML ")
-                                quickAppendButton("OVER", "OVER ")
-                                quickAppendButton("UNDER", "UNDER ")
-                                quickAppendButton("PLUS", "+")
-                                quickAppendButton("MINUS", "-")
+                                quickAppendButton("ML", "ML ", nextFocus: .amount)
+                                quickAppendButton("OVER", "OVER ", nextFocus: .whatAmount)
+                                quickAppendButton("UNDER", "UNDER ", nextFocus: .whatAmount)
+                                quickAppendButton("PLUS", "+", nextFocus: .whatAmount)
+                                quickAppendButton("MINUS", "-", nextFocus: .whatAmount)
                                 Spacer()
                             }
 
@@ -225,10 +225,10 @@ struct AddBetView: View {
         amountText = ""
     }
 
-    private func quickAppendButton(_ label: String, _ token: String) -> some View {
+    private func quickAppendButton(_ label: String, _ token: String, nextFocus: Field) -> some View {
         Button(label) {
             appendToken(token)
-            focusedField = .whatAmount
+            focusedField = nextFocus
         }
         .font(.caption)
         .padding(.horizontal, 10)
