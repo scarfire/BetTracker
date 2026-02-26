@@ -8,6 +8,69 @@
 import SwiftUI
 import SwiftData
 
+
+// MARK: - Swipe To Delete Card
+
+private struct SwipeToDeleteCard<Content: View>: View {
+    let content: Content
+    let onDelete: () -> Void
+
+    @State private var offset: CGFloat = 0
+    private let deleteWidth: CGFloat = 80
+
+    init(onDelete: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.onDelete = onDelete
+        self.content = content()
+    }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button(action: triggerDelete) {
+                Image(systemName: "trash")
+                    .foregroundColor(.white)
+                    .frame(width: deleteWidth)
+                    .frame(maxHeight: .infinity)
+                    .background(Color.red)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            }
+            .opacity(offset < 0 ? 1 : 0)
+
+            content
+                .offset(x: offset)
+                .gesture(
+                    DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                        .onChanged { value in
+                            let x = value.translation.width
+                            let y = value.translation.height
+                            guard abs(x) > abs(y) else { return }
+                            if x < 0 {
+                                offset = max(x, -deleteWidth * 1.5)
+                            } else if offset < 0 {
+                                offset = min(x + offset, 0)
+                            }
+                        }
+                        .onEnded { value in
+                            let x = value.translation.width
+                            let y = value.translation.height
+                            guard abs(x) > abs(y) else { return }
+                            if x < -deleteWidth {
+                                withAnimation(.easeOut(duration: 0.2)) { offset = -deleteWidth }
+                            } else {
+                                withAnimation(.spring()) { offset = 0 }
+                            }
+                        }
+                )
+        }
+        .clipped()
+    }
+
+    private func triggerDelete() {
+        withAnimation(.easeIn(duration: 0.2)) { offset = -400 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { onDelete() }
+    }
+}
+
+// MARK: - TodayView
 struct TodayView: View {
     @Environment(\.modelContext) private var context
     @Query private var bets: [Bet]
@@ -138,53 +201,53 @@ struct TodayView: View {
     private func cards(_ array: [Bet]) -> some View {
         VStack(spacing: 10) {
             ForEach(array) { bet in
-                betCard(bet)
-                    .contextMenu {
-                        Button(role: .destructive) {
-                            context.delete(bet)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
+                SwipeToDeleteCard {
+                    context.delete(bet)
+                } content: {
+                    betCard(bet)
+                }
+                .contextMenu {
+                    Button(role: .destructive) {
+                        context.delete(bet)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
                     }
+                }
             }
         }
         .padding(.horizontal)
     }
 
     private func betCard(_ bet: Bet) -> some View {
-        Button {
-            selectedBet = bet
-        } label: {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("\(bet.sport) • \(bet.wagerText)")
-                        .font(.headline)
-                        .foregroundColor(foregroundColor(for: bet))
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("\(bet.sport) • \(bet.wagerText)")
+                    .font(.headline)
+                    .foregroundColor(foregroundColor(for: bet))
 
-                    Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
-                        .font(.subheadline)
-                        .foregroundColor(foregroundColor(for: bet).opacity(0.85))
-                }
-
-                Spacer()
-
-                if let net = bet.net {
-                    Text(money(net))
-                        .font(.headline.weight(.bold))
-                        .foregroundColor(foregroundColor(for: bet))
-                } else {
-                    Text("Pending")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.orange)
-                }
+                Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
+                    .font(.subheadline)
+                    .foregroundColor(foregroundColor(for: bet).opacity(0.85))
             }
-            .padding(14)
-            .background(cardBackground(for: bet))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 6)
-            .animation(.easeInOut(duration: 0.25), value: bet.net)
+
+            Spacer()
+
+            if let net = bet.net {
+                Text(money(net))
+                    .font(.headline.weight(.bold))
+                    .foregroundColor(foregroundColor(for: bet))
+            } else {
+                Text("Pending")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.orange)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(14)
+        .background(cardBackground(for: bet))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 6)
+        .animation(.easeInOut(duration: 0.25), value: bet.net)
+        .onTapGesture { selectedBet = bet }
     }
 
     // MARK: - Data (Today uses eventDate)
@@ -439,4 +502,3 @@ struct UpdateResultSheet: View {
         return formatter.string(from: date)
     }
 }
-
