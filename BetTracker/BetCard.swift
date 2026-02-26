@@ -1,11 +1,3 @@
-//
-//  BetCard.swift
-//  BetTracker
-//
-//  Created by Todd Stevens on 2/26/26.
-//
-
-
 import SwiftUI
 
 /// A reusable card for displaying a bet. Pass an optional `onTap` to make it tappable.
@@ -24,8 +16,11 @@ struct BetCard: View {
                     .font(.subheadline)
                     .foregroundColor(foregroundColor.opacity(0.85))
 
-                if bet.net == nil {
-                    // Show event date on Upcoming / Settled where there's no tap to see details
+                if let settledAt = bet.settledAt {
+                    Text("Settled: \(shortDate(settledAt))")
+                        .font(.subheadline)
+                        .foregroundColor(foregroundColor.opacity(0.85))
+                } else {
                     Text("Event: \(shortDate(bet.eventDate))")
                         .font(.subheadline)
                         .foregroundColor(foregroundColor.opacity(0.85))

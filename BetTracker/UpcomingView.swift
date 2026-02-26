@@ -10,6 +10,7 @@ struct UpcomingView: View {
     @Environment(\.modelContext) private var context
     @Query private var bets: [Bet]
     @State private var sportFilter: String = "All"
+    @State private var selectedBet: Bet?
 
     private let headerHeight: CGFloat = 140
 
@@ -31,7 +32,7 @@ struct UpcomingView: View {
                     } else {
                         VStack(spacing: 10) {
                             ForEach(upcomingBets) { bet in
-                                BetCard(bet: bet)
+                                BetCard(bet: bet) { selectedBet = bet }
                                     .contextMenu {
                                         Button(role: .destructive) {
                                             context.delete(bet)
@@ -50,6 +51,9 @@ struct UpcomingView: View {
             .ignoresSafeArea(edges: .top)
             .toolbar(.hidden, for: .navigationBar)
             .background(Color(.systemGroupedBackground))
+            .sheet(item: $selectedBet) { bet in
+                UpdateResultSheet(bet: bet)
+            }
         }
     }
 
