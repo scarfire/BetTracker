@@ -25,6 +25,11 @@ struct TodayView: View {
                     filterBar
                         .padding(.horizontal)
 
+                    if !settledTodayBets.isEmpty {
+                        dailyTotalBar
+                            .padding(.horizontal)
+                    }
+
                     if !pendingBets.isEmpty {
                         sectionHeader("Pending").padding(.horizontal)
                         cards(pendingBets)
@@ -110,6 +115,37 @@ struct TodayView: View {
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
+    // MARK: - Daily Total Bar
+
+    private var dailyTotalBar: some View {
+        let total = settledTodayBets.reduce(0) { $0 + ($1.net ?? 0) }
+        return HStack {
+            Text("Today's Net")
+                .font(.headline)
+            Spacer()
+            Text(formatted(total))
+                .font(.headline.weight(.bold))
+                .foregroundColor(total > 0 ? .blue : total < 0 ? .red : .secondary)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .animation(.easeInOut(duration: 0.25), value: total)
+    }
+
+    private func formatted(_ value: Double) -> String {
+        let abs = Swift.abs(value)
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "USD"
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        let str = f.string(from: NSNumber(value: abs)) ?? "$0.00"
+        return value >= 0 ? "+\(str)" : "-\(str)"
+    }
+
     // MARK: - Section + Cards
 
     private func sectionHeader(_ title: String) -> some View {
@@ -148,6 +184,7 @@ struct TodayView: View {
         return dayFiltered.filter { $0.sport == sportFilter }
     }
 
+    private var settledTodayBets: [Bet] { todayBets.filter { $0.net != nil } }
     private var pendingBets: [Bet] { todayBets.filter { $0.net == nil }.sorted { $0.eventDate < $1.eventDate } }
     private var winBets:     [Bet] { todayBets.filter { ($0.net ?? 0) > 0 }.sorted { $0.createdAt < $1.createdAt } }
     private var lossBets:    [Bet] { todayBets.filter { ($0.net ?? 0) < 0 }.sorted { $0.createdAt < $1.createdAt } }
