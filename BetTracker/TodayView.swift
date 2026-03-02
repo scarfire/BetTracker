@@ -140,12 +140,15 @@ struct TodayView: View {
     private var todayBets: [Bet] {
         let start = Calendar.current.startOfDay(for: Date())
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? Date()
-        let dayFiltered = bets.filter { $0.eventDate >= start && $0.eventDate < end }
+        // Settled bets: today only. Unsettled: today or earlier (overdue).
+        let dayFiltered = bets.filter {
+            $0.net != nil ? ($0.eventDate >= start && $0.eventDate < end) : $0.eventDate < end
+        }
         if sportFilter == "All" { return dayFiltered }
         return dayFiltered.filter { $0.sport == sportFilter }
     }
 
-    private var pendingBets: [Bet] { todayBets.filter { $0.net == nil }.sorted { $0.createdAt < $1.createdAt } }
+    private var pendingBets: [Bet] { todayBets.filter { $0.net == nil }.sorted { $0.eventDate < $1.eventDate } }
     private var winBets:     [Bet] { todayBets.filter { ($0.net ?? 0) > 0 }.sorted { $0.createdAt < $1.createdAt } }
     private var lossBets:    [Bet] { todayBets.filter { ($0.net ?? 0) < 0 }.sorted { $0.createdAt < $1.createdAt } }
     private var pushBets:    [Bet] { todayBets.filter { $0.net == 0 }.sorted { $0.createdAt < $1.createdAt } }
