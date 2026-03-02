@@ -10,8 +10,10 @@ struct SettledView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var bets: [Bet]
     @State private var sportFilter: String = "All"
+    @State private var dayRange: Int = 30
 
     private let headerHeight: CGFloat = 140
+    private let ranges = [7, 30, 90, 365]
 
     var body: some View {
         NavigationStack {
@@ -19,6 +21,9 @@ struct SettledView: View {
                 LazyVStack(alignment: .leading, spacing: 14) {
 
                     headerView
+
+                    dateRangePicker
+                        .padding(.horizontal)
 
                     filterBar
                         .padding(.horizontal)
@@ -79,6 +84,26 @@ struct SettledView: View {
         .frame(height: headerHeight)
     }
 
+    // MARK: - Date Range Picker
+
+    private var dateRangePicker: some View {
+        Picker("Date Range", selection: $dayRange) {
+            ForEach(ranges, id: \.self) { days in
+                Text(label(for: days)).tag(days)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private func label(for days: Int) -> String {
+        switch days {
+        case 7:   return "7 Days"
+        case 30:  return "30 Days"
+        case 90:  return "90 Days"
+        default:  return "Year"
+        }
+    }
+
     // MARK: - Filter Bar
 
     private var filterBar: some View {
@@ -103,12 +128,9 @@ struct SettledView: View {
     // MARK: - Data
 
     private var settledBets: [Bet] {
-        let filtered = bets.filter { $0.net != nil }
-        if sportFilter == "All" {
-            return filtered.sorted { ($0.settledAt ?? Date()) > ($1.settledAt ?? Date()) }
-        }
-        return filtered
-            .filter { $0.sport == sportFilter }
-            .sorted { ($0.settledAt ?? Date()) > ($1.settledAt ?? Date()) }
+        let cutoff = Calendar.current.date(byAdding: .day, value: -dayRange, to: Date()) ?? Date()
+        let filtered = bets.filter { $0.net != nil && $0.eventDate >= cutoff }
+        let sportFiltered = sportFilter == "All" ? filtered : filtered.filter { $0.sport == sportFilter }
+        return sportFiltered.sorted { ($0.settledAt ?? Date()) > ($1.settledAt ?? Date()) }
     }
 }
