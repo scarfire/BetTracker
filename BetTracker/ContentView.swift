@@ -37,6 +37,11 @@ struct ContentView: View {
                     Label("Settled", systemImage: "checkmark.circle")
                 }
 
+            TotalsView()
+                .tabItem {
+                    Label("Totals", systemImage: "dollarsign")
+                }
+
             AddBetView()
                 .tabItem {
                     Label("Add Bet", systemImage: "plus.circle.fill")
