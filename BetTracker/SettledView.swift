@@ -28,6 +28,11 @@ struct SettledView: View {
                     filterBar
                         .padding(.horizontal)
 
+                    if !settledBets.isEmpty {
+                        totalBar
+                            .padding(.horizontal)
+                    }
+
                     if settledBets.isEmpty {
                         Text("No settled bets.")
                             .foregroundColor(.secondary)
@@ -123,6 +128,37 @@ struct SettledView: View {
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+    }
+
+    // MARK: - Total Bar
+
+    private var totalBar: some View {
+        let total = settledBets.reduce(0) { $0 + ($1.net ?? 0) }
+        return HStack {
+            Text("Net")
+                .font(.headline)
+            Spacer()
+            Text(formatted(total))
+                .font(.headline.weight(.bold))
+                .foregroundColor(total > 0 ? .blue : total < 0 ? .red : .secondary)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .animation(.easeInOut(duration: 0.25), value: total)
+    }
+
+    private func formatted(_ value: Double) -> String {
+        let abs = Swift.abs(value)
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "USD"
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        let str = f.string(from: NSNumber(value: abs)) ?? "$0.00"
+        return value >= 0 ? "+\(str)" : "-\(str)"
     }
 
     // MARK: - Data
