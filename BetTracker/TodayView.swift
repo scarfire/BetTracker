@@ -174,11 +174,18 @@ struct TodayView: View {
     // MARK: - Data
 
     private var todayBets: [Bet] {
-        let start = Calendar.current.startOfDay(for: Date())
-        let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? Date()
-        // Settled bets: today only. Unsettled: today or earlier (overdue).
-        let dayFiltered = bets.filter {
-            $0.net != nil ? ($0.eventDate >= start && $0.eventDate < end) : $0.eventDate < end
+        let cal = Calendar.current
+        let todayComponents = cal.dateComponents([.year, .month, .day], from: Date())
+        let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: Date())) ?? Date()
+
+        let dayFiltered = bets.filter { bet in
+            let betComponents = cal.dateComponents([.year, .month, .day], from: bet.eventDate)
+            let isToday = betComponents.year == todayComponents.year &&
+                          betComponents.month == todayComponents.month &&
+                          betComponents.day == todayComponents.day
+            let isPastOrToday = bet.eventDate < end
+            // Settled: must be today's game. Unsettled: today or any overdue past game.
+            return bet.net != nil ? isToday : isPastOrToday
         }
         if sportFilter == "All" { return dayFiltered }
         return dayFiltered.filter { $0.sport == sportFilter }
