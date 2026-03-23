@@ -12,6 +12,7 @@ struct TodayView: View {
 
     @State private var sportFilter: String = "All"
     @State private var selectedBet: Bet?
+    @State private var searchText: String = ""
 
     private let headerHeight: CGFloat = 140
 
@@ -23,6 +24,9 @@ struct TodayView: View {
                     headerView
 
                     filterBar
+                        .padding(.horizontal)
+
+                    searchBar
                         .padding(.horizontal)
 
                     if !settledTodayBets.isEmpty {
@@ -115,6 +119,31 @@ struct TodayView: View {
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
+    // MARK: - Search Bar
+
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+            TextField("Search bets...", text: $searchText)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+    }
+
     // MARK: - Daily Total Bar
 
     private var dailyTotalBar: some View {
@@ -183,12 +212,16 @@ struct TodayView: View {
             let isToday = betComponents.year == todayComponents.year &&
                           betComponents.month == todayComponents.month &&
                           betComponents.day == todayComponents.day
-            let isPastOrToday = bet.eventDate < end
-            // Settled: must be today's game. Unsettled: today or any overdue past game.
-            return bet.net != nil ? isToday : isPastOrToday
+            return bet.net != nil ? isToday : bet.eventDate < end
         }
-        if sportFilter == "All" { return dayFiltered }
-        return dayFiltered.filter { $0.sport == sportFilter }
+
+        let sportFiltered = sportFilter == "All" ? dayFiltered : dayFiltered.filter { $0.sport == sportFilter }
+
+        guard !searchText.isEmpty else { return sportFiltered }
+        let query = searchText.lowercased()
+        return sportFiltered.filter {
+            $0.wagerText.lowercased().contains(query) || $0.sport.lowercased().contains(query)
+        }
     }
 
     private var settledTodayBets: [Bet] { todayBets.filter { $0.net != nil } }
