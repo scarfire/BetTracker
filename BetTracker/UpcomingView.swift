@@ -11,6 +11,7 @@ struct UpcomingView: View {
     @Query private var bets: [Bet]
     @State private var sportFilter: String = "All"
     @State private var selectedBet: Bet?
+    @State private var searchText: String = ""
 
     private let headerHeight: CGFloat = 140
 
@@ -22,6 +23,9 @@ struct UpcomingView: View {
                     headerView
 
                     filterBar
+                        .padding(.horizontal)
+
+                    searchBar
                         .padding(.horizontal)
 
                     if upcomingBets.isEmpty {
@@ -104,12 +108,42 @@ struct UpcomingView: View {
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
+    // MARK: - Search Bar
+
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+            TextField("Search bets...", text: $searchText)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+    }
+
     // MARK: - Data
 
     private var upcomingBets: [Bet] {
         let now = Date()
         let filtered = bets.filter { $0.eventDate > now && $0.net == nil }
-        if sportFilter == "All" { return filtered.sorted { $0.eventDate < $1.eventDate } }
-        return filtered.filter { $0.sport == sportFilter }.sorted { $0.eventDate < $1.eventDate }
+        let sportFiltered = sportFilter == "All" ? filtered : filtered.filter { $0.sport == sportFilter }
+        let sorted = sportFiltered.sorted { $0.eventDate < $1.eventDate }
+        guard !searchText.isEmpty else { return sorted }
+        let query = searchText.lowercased()
+        return sorted.filter {
+            $0.wagerText.lowercased().contains(query) || $0.sport.lowercased().contains(query)
+        }
     }
 }
