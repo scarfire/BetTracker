@@ -11,6 +11,7 @@ struct SettledView: View {
     @Query private var bets: [Bet]
     @State private var sportFilter: String = "All"
     @State private var dayRange: Int = 30
+    @State private var searchText: String = ""
 
     private let headerHeight: CGFloat = 140
     private let ranges = [7, 30, 90, 365]
@@ -26,6 +27,9 @@ struct SettledView: View {
                         .padding(.horizontal)
 
                     filterBar
+                        .padding(.horizontal)
+
+                    searchBar
                         .padding(.horizontal)
 
                     if !settledBets.isEmpty {
@@ -130,6 +134,31 @@ struct SettledView: View {
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
+    // MARK: - Search Bar
+
+    private var searchBar: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundColor(.secondary)
+            TextField("Search bets...", text: $searchText)
+                .autocorrectionDisabled(true)
+                .textInputAutocapitalization(.never)
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+    }
+
     // MARK: - Total Bar
 
     private var totalBar: some View {
@@ -167,6 +196,11 @@ struct SettledView: View {
         let cutoff = Calendar.current.date(byAdding: .day, value: -dayRange, to: Date()) ?? Date()
         let filtered = bets.filter { $0.net != nil && $0.eventDate >= cutoff }
         let sportFiltered = sportFilter == "All" ? filtered : filtered.filter { $0.sport == sportFilter }
-        return sportFiltered.sorted { ($0.settledAt ?? Date()) > ($1.settledAt ?? Date()) }
+        let sorted = sportFiltered.sorted { ($0.settledAt ?? Date()) > ($1.settledAt ?? Date()) }
+        guard !searchText.isEmpty else { return sorted }
+        let query = searchText.lowercased()
+        return sorted.filter {
+            $0.wagerText.lowercased().contains(query) || $0.sport.lowercased().contains(query)
+        }
     }
 }
