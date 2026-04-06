@@ -19,6 +19,9 @@ struct BetTrackerMacApp: App {
     var body: some Scene {
         WindowGroup {
             BetsGridView()
+//                .onAppear {
+//                    try? modelContainer.mainContext.delete(model: Bet.self) // ← REMOVE AFTER RUNNING ONCE
+//                }
         }
         .modelContainer(modelContainer)
     }
