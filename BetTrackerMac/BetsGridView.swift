@@ -4,27 +4,23 @@ import UniformTypeIdentifiers
 
 // MARK: - CSV FileDocument
 struct CSVDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
-    static var writableContentTypes: [UTType] { [.commaSeparatedText] }
+    static var readableContentTypes: [UTType]  { [.commaSeparatedText] }
+    static var writableContentTypes: [UTType]  { [.commaSeparatedText] }
 
     var text: String
 
-    init(text: String = "") {
-        self.text = text
-    }
+    init(text: String = "") { self.text = text }
 
     init(configuration: ReadConfiguration) throws {
         guard let data = configuration.file.regularFileContents,
               let text = String(data: data, encoding: .utf8) else {
-            self.text = ""
-            return
+            self.text = ""; return
         }
         self.text = text
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        let data = text.data(using: .utf8) ?? Data()
-        return .init(regularFileWithContents: data)
+        .init(regularFileWithContents: text.data(using: .utf8) ?? Data())
     }
 }
 
@@ -32,6 +28,7 @@ struct CSVDocument: FileDocument {
 struct ExportOptionsView: View {
     let allSports: [String]
     @Binding var selectedSports: Set<String>
+    @Binding var includeAllStatuses: Bool      // true = all bets, false = settled only
     let onExport: () -> Void
 
     var body: some View {
@@ -40,10 +37,9 @@ struct ExportOptionsView: View {
                 .font(.title2)
                 .padding(.bottom, 4)
 
-            Text("Select one or more sports to include:")
+            Text("Select sports to include:")
                 .foregroundStyle(.secondary)
 
-            // Simple checkbox list (works well on macOS)
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(allSports, id: \.self) { sport in
@@ -51,7 +47,7 @@ struct ExportOptionsView: View {
                             get: { selectedSports.contains(sport) },
                             set: { isOn in
                                 if isOn { selectedSports.insert(sport) }
-                                else { selectedSports.remove(sport) }
+                                else    { selectedSports.remove(sport) }
                             }
                         )) {
                             Text(sport.isEmpty ? "(Blank)" : sport)
@@ -61,24 +57,20 @@ struct ExportOptionsView: View {
                 }
                 .padding(.vertical, 4)
             }
-            .frame(minHeight: 220)
+            .frame(minHeight: 180)
+
+            Divider()
+
+            Toggle("Include pending (open) bets", isOn: $includeAllStatuses)
+                .toggleStyle(.checkbox)
 
             HStack {
-                Button("Select All") {
-                    selectedSports = Set(allSports)
-                }
-
-                Button("Select None") {
-                    selectedSports.removeAll()
-                }
-
+                Button("Select All")  { selectedSports = Set(allSports) }
+                Button("Select None") { selectedSports.removeAll() }
                 Spacer()
-
-                Button("Export…") {
-                    onExport()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(selectedSports.isEmpty)
+                Button("Export…") { onExport() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(selectedSports.isEmpty)
             }
             .padding(.top, 6)
         }
@@ -91,27 +83,26 @@ struct ExportOptionsView: View {
 struct BetsGridView: View {
     @Query(sort: \Bet.eventDate) private var bets: [Bet]
 
-    // Export UI state
-    @State private var showingExportOptions = false
+    @State private var showingExportOptions  = false
     @State private var selectedSports: Set<String> = []
-    @State private var showingFileExporter = false
-    @State private var csvDocument = CSVDocument(text: "")
-    @State private var suggestedFilename = "BetTracker-Export.csv"
+    @State private var includeAllStatuses    = true     // default: export all bets
+    @State private var showingFileExporter   = false
+    @State private var csvDocument           = CSVDocument(text: "")
+    @State private var suggestedFilename     = "BetTracker-Export.csv"
 
     private var allSports: [String] {
-        let unique = Set(bets.map { $0.sport })
-        return unique.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        Set(bets.map { $0.sport })
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
-                Text("Bet Tracker - Data Grid")
+                Text("Bet Tracker — Data Grid")
                     .font(.title2)
                 Spacer()
                 Button("Export CSV") {
-                    // Default selection: all sports
-                    selectedSports = Set(allSports)
+                    selectedSports   = Set(allSports)
                     suggestedFilename = "BetTracker-Export-\(dateStamp()).csv"
                     showingExportOptions = true
                 }
@@ -128,7 +119,15 @@ struct BetsGridView: View {
                 TableColumn("Wager") { bet in
                     Text(bet.wagerText).lineLimit(1)
                 }
-                TableColumn("Bet Amount") { bet in
+                TableColumn("Parlay") { bet in
+                    Text(bet.parlaySize <= 1 ? "Straight" : "\(bet.parlaySize)-Leg")
+                    .foregroundStyle(bet.parlaySize > 1 ? Color.accentColor : Color.primary)
+                }
+                TableColumn("Prop") { bet in
+                    Text(bet.isProp ? "Yes" : "—")
+                        .foregroundStyle(bet.isProp ? .orange : .secondary)
+                }
+                TableColumn("Bet") { bet in
                     Text(bet.betAmount, format: .number.precision(.fractionLength(2)))
                         .monospacedDigit()
                 }
@@ -140,6 +139,7 @@ struct BetsGridView: View {
                     if let net = bet.net {
                         Text(net, format: .number.precision(.fractionLength(2)))
                             .monospacedDigit()
+                            .foregroundStyle(net >= 0 ? .green : .red)
                     } else {
                         Text("Pending").foregroundStyle(.secondary)
                     }
@@ -148,8 +148,8 @@ struct BetsGridView: View {
                     Text(bet.createdAt, format: .dateTime.month().day().year())
                 }
                 TableColumn("Settled") { bet in
-                    if let settledAt = bet.settledAt {
-                        Text(settledAt, format: .dateTime.month().day().year())
+                    if let s = bet.settledAt {
+                        Text(s, format: .dateTime.month().day().year())
                     } else {
                         Text("—").foregroundStyle(.secondary)
                     }
@@ -157,123 +157,89 @@ struct BetsGridView: View {
             }
             .padding(12)
         }
-        .frame(minWidth: 1100, minHeight: 650)
+        .frame(minWidth: 1200, minHeight: 650)
 
-        // 1) Options sheet
+        // Options sheet
         .sheet(isPresented: $showingExportOptions) {
             ExportOptionsView(
                 allSports: allSports,
                 selectedSports: $selectedSports,
+                includeAllStatuses: $includeAllStatuses,
                 onExport: {
                     let filtered = bets.filter { bet in
-                        selectedSports.contains(bet.sport) &&
-                        (bet.settledAt != nil || bet.net != nil)   // settled only
+                        guard selectedSports.contains(bet.sport) else { return false }
+                        return includeAllStatuses ? true : (bet.settledAt != nil || bet.net != nil)
                     }
-
-                    csvDocument = CSVDocument(text: makeCSV(from: filtered))
-
-                    // 1) Close the options sheet first
+                    csvDocument      = CSVDocument(text: makeCSV(from: filtered))
                     showingExportOptions = false
-
-                    // 2) Then present the Save dialog on the next runloop tick
-                    DispatchQueue.main.async {
-                        showingFileExporter = true
-                    }
+                    DispatchQueue.main.async { showingFileExporter = true }
                 }
             )
         }
 
-        // 2) Save dialog
+        // Save dialog
         .fileExporter(
             isPresented: $showingFileExporter,
             document: csvDocument,
             contentType: .commaSeparatedText,
             defaultFilename: suggestedFilename
-        ) { result in
-            // You can add a toast/alert here if you want
-            // result: .success(URL) or .failure(Error)
-        }
+        ) { _ in }
     }
 
     // MARK: - CSV generation
+    // Column names match import_bets.py exactly
 
     private func makeCSV(from bets: [Bet]) -> String {
-        // Header row
-        var lines: [String] = []
-        lines.append([
-            "id",
-            "createdAt",
-            "eventDate",
-            "settledAt",
-            "sport",
-            "wagerText",
-            "betAmount",
-            "payoutAmount",
-            "originalPayoutAmount",
-            "net"
-        ].joined(separator: ","))
+        var lines: [String] = [
+            "id,created_at,event_date,settled_at,sport,wager_text,parlay_size,is_prop,bet_amount,payout_amount,original_payout_amount,net"
+        ]
 
-        // Data rows
         for b in bets {
             let row: [String] = [
                 csvEscape(b.id.uuidString),
-                csvEscape(localDateTime(b.createdAt)),
-                csvEscape(localDateOnly(b.eventDate)),
-                csvEscape(b.settledAt.map(localDateTime) ?? ""),
+                csvEscape(isoDateTime(b.createdAt)),
+                csvEscape(isoDateOnly(b.eventDate)),
+                csvEscape(b.settledAt.map(isoDateTime) ?? ""),
                 csvEscape(b.sport),
                 csvEscape(b.wagerText),
-                csvEscape(formatMoney(b.betAmount)),
-                csvEscape(formatMoney(b.payoutAmount)),
-                csvEscape(formatMoney(b.originalPayoutAmount)),
-                csvEscape(b.net.map(formatMoney) ?? "")
+                "\(b.parlaySize)",
+                b.isProp ? "1" : "0",
+                fmt(b.betAmount),
+                fmt(b.payoutAmount),
+                fmt(b.originalPayoutAmount),
+                csvEscape(b.net.map(fmt) ?? "")
             ]
             lines.append(row.joined(separator: ","))
         }
 
-        // Use \n (Excel/Numbers handle it fine on macOS)
         return lines.joined(separator: "\n")
     }
 
     private func csvEscape(_ value: String) -> String {
-        // Quote if it contains comma, quote, or newline. Double internal quotes.
         if value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r") {
-            let doubled = value.replacingOccurrences(of: "\"", with: "\"\"")
-            return "\"\(doubled)\""
-        } else {
-            return value
+            return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
+        return value
     }
 
-    private static let localDateTimeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .autoupdatingCurrent
-        f.timeZone = .autoupdatingCurrent
-        f.dateStyle = .short
-        f.timeStyle = .short
+    // ISO 8601 dates — what import_bets.py expects
+    private static let isoDateTimeFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
 
-    private static let localDateOnlyFormatter: DateFormatter = {
+    private static let isoDateOnlyFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.locale = .autoupdatingCurrent
-        f.timeZone = .autoupdatingCurrent
-        f.dateStyle = .short
-        f.timeStyle = .none
+        f.locale   = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "America/New_York")
+        f.dateFormat = "yyyy-MM-dd"
         return f
     }()
 
-    private func localDateTime(_ date: Date) -> String {
-        Self.localDateTimeFormatter.string(from: date)
-    }
-
-    private func localDateOnly(_ date: Date) -> String {
-        Self.localDateOnlyFormatter.string(from: date)
-    }
-
-    private func formatMoney(_ d: Double) -> String {
-        // Keep it simple and stable for CSV (avoid locale commas)
-        String(format: "%.2f", d)
-    }
+    private func isoDateTime(_ date: Date) -> String { Self.isoDateTimeFormatter.string(from: date) }
+    private func isoDateOnly(_ date: Date) -> String  { Self.isoDateOnlyFormatter.string(from: date) }
+    private func fmt(_ d: Double) -> String           { String(format: "%.2f", d) }
 
     private func dateStamp() -> String {
         let f = DateFormatter()
@@ -281,4 +247,3 @@ struct BetsGridView: View {
         return f.string(from: Date())
     }
 }
-
