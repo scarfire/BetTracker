@@ -28,7 +28,6 @@ struct CSVDocument: FileDocument {
 struct ExportOptionsView: View {
     let allSports: [String]
     @Binding var selectedSports: Set<String>
-    @Binding var includeAllStatuses: Bool      // true = all bets, false = settled only
     let onExport: () -> Void
 
     var body: some View {
@@ -37,7 +36,7 @@ struct ExportOptionsView: View {
                 .font(.title2)
                 .padding(.bottom, 4)
 
-            Text("Select sports to include:")
+            Text("Select sports to include (all statuses exported):")
                 .foregroundStyle(.secondary)
 
             ScrollView {
@@ -58,11 +57,6 @@ struct ExportOptionsView: View {
                 .padding(.vertical, 4)
             }
             .frame(minHeight: 180)
-
-            Divider()
-
-            Toggle("Include pending (open) bets", isOn: $includeAllStatuses)
-                .toggleStyle(.checkbox)
 
             HStack {
                 Button("Select All")  { selectedSports = Set(allSports) }
@@ -85,7 +79,6 @@ struct BetsGridView: View {
 
     @State private var showingExportOptions  = false
     @State private var selectedSports: Set<String> = []
-    @State private var includeAllStatuses    = true     // default: export all bets
     @State private var showingFileExporter   = false
     @State private var csvDocument           = CSVDocument(text: "")
     @State private var suggestedFilename     = "BetTracker-Export.csv"
@@ -164,12 +157,8 @@ struct BetsGridView: View {
             ExportOptionsView(
                 allSports: allSports,
                 selectedSports: $selectedSports,
-                includeAllStatuses: $includeAllStatuses,
                 onExport: {
-                    let filtered = bets.filter { bet in
-                        guard selectedSports.contains(bet.sport) else { return false }
-                        return includeAllStatuses ? true : (bet.settledAt != nil || bet.net != nil)
-                    }
+                    let filtered = bets.filter { selectedSports.contains($0.sport) }
                     csvDocument      = CSVDocument(text: makeCSV(from: filtered))
                     showingExportOptions = false
                     DispatchQueue.main.async { showingFileExporter = true }
