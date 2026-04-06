@@ -1,9 +1,7 @@
+// Bet.swift
+// BetTracker
 //
-//  Bet.swift
-//  BetTracker
-//
-//  Created by Todd Stevens on 2/14/26.
-//
+// Updated: added parlaySize (1=straight, 2-10=parlay legs) and isProp flag
 
 import Foundation
 import SwiftData
@@ -19,13 +17,15 @@ final class Bet {
     var sport: String = ""
     var wagerText: String = ""
 
+    var parlaySize: Int = 1       // 1 = straight bet, 2-10 = number of legs
+    var isProp: Bool = false      // true if any prop involved
+
     var betAmount: Double = 0
     var payoutAmount: Double = 0
     var originalPayoutAmount: Double = 0
 
-    var net: Double? = nil  // nil = pending
+    var net: Double? = nil        // nil = pending, positive = won, negative = lost, 0 = push
 
-    // Keep your custom init if you want, but it's no longer required for CloudKit
     init(
         id: UUID = UUID(),
         createdAt: Date = Date(),
@@ -33,6 +33,8 @@ final class Bet {
         settledAt: Date? = nil,
         sport: String = "",
         wagerText: String = "",
+        parlaySize: Int = 1,
+        isProp: Bool = false,
         betAmount: Double = 0,
         payoutAmount: Double = 0,
         originalPayoutAmount: Double = 0,
@@ -44,10 +46,11 @@ final class Bet {
         self.settledAt = settledAt
         self.sport = sport
         self.wagerText = wagerText
+        self.parlaySize = parlaySize
+        self.isProp = isProp
         self.betAmount = betAmount
         self.payoutAmount = payoutAmount
         self.originalPayoutAmount = originalPayoutAmount
         self.net = net
     }
 }
-
