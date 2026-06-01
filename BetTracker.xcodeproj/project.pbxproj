@@ -29,11 +29,6 @@
 			path = BetTracker;
 			sourceTree = "<group>";
 		};
-		1CB65EDD2F48150A0026AE86 /* BetTrackerMac */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BetTrackerMac;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -51,7 +46,6 @@
 			isa = PBXGroup;
 			children = (
 				1C757A632F410E5900B43D77 /* BetTracker */,
-				1CB65EDD2F48150A0026AE86 /* BetTrackerMac */,
 				1C757A622F410E5900B43D77 /* Products */,
 			);
 			sourceTree = "<group>";
