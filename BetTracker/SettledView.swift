@@ -60,6 +60,7 @@ struct SettledView: View {
             .background(Color(.systemGroupedBackground))
         }
         .task { await service.fetchSettled() }
+        .onAppear { Task { await service.fetchSettled() } }
     }
 
     // MARK: - Header

@@ -69,6 +69,7 @@ struct TodayView: View {
             }
         }
         .task { await service.fetchToday() }
+        .onAppear { Task { await service.fetchToday() } }
     }
 
     // MARK: - Header

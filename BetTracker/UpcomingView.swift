@@ -58,6 +58,7 @@ struct UpcomingView: View {
             }
         }
         .task { await service.fetchUpcoming() }
+        .onAppear { Task { await service.fetchUpcoming() } }
     }
 
     // MARK: - Header
