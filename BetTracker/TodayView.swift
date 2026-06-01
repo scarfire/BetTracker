@@ -4,11 +4,9 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct TodayView: View {
-    @Environment(\.modelContext) private var context
-    @Query private var bets: [Bet]
+    @EnvironmentObject var service: BetService
 
     @State private var sportFilter: String = "All"
     @State private var selectedBet: Bet?
@@ -23,52 +21,54 @@ struct TodayView: View {
 
                     headerView
 
-                    filterBar
-                        .padding(.horizontal)
+                    filterBar.padding(.horizontal)
+                    searchBar.padding(.horizontal)
 
-                    searchBar
-                        .padding(.horizontal)
-
-                    if !settledTodayBets.isEmpty {
-                        dailyTotalBar
-                            .padding(.horizontal)
-                    }
-
-                    if !pendingBets.isEmpty {
-                        sectionHeader("Pending").padding(.horizontal)
-                        cards(pendingBets)
-                    }
-                    if !winBets.isEmpty {
-                        sectionHeader("Wins").padding(.horizontal)
-                        cards(winBets)
-                    }
-                    if !lossBets.isEmpty {
-                        sectionHeader("Losses").padding(.horizontal)
-                        cards(lossBets)
-                    }
-                    if !pushBets.isEmpty {
-                        sectionHeader("Pushes").padding(.horizontal)
-                        cards(pushBets)
-                    }
-                    if pendingBets.isEmpty && winBets.isEmpty && lossBets.isEmpty && pushBets.isEmpty {
-                        Text("No bets for today.")
-                            .foregroundColor(.secondary)
+                    if service.isLoading {
+                        ProgressView()
                             .padding(.horizontal)
                             .padding(.top, 8)
+                    } else {
+                        if !settledBets.isEmpty {
+                            dailyTotalBar.padding(.horizontal)
+                        }
+                        if !pendingBets.isEmpty {
+                            sectionHeader("Pending").padding(.horizontal)
+                            cards(pendingBets)
+                        }
+                        if !winBets.isEmpty {
+                            sectionHeader("Wins").padding(.horizontal)
+                            cards(winBets)
+                        }
+                        if !lossBets.isEmpty {
+                            sectionHeader("Losses").padding(.horizontal)
+                            cards(lossBets)
+                        }
+                        if !pushBets.isEmpty {
+                            sectionHeader("Pushes").padding(.horizontal)
+                            cards(pushBets)
+                        }
+                        if filteredBets.isEmpty {
+                            Text(service.errorMessage != nil ? "Failed to load bets." : "No bets for today.")
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal)
+                                .padding(.top, 8)
+                        }
                     }
 
                     Spacer(minLength: 20)
                 }
                 .padding(.bottom, 28)
             }
+            .refreshable { await service.fetchToday() }
             .toolbar(.hidden, for: .navigationBar)
             .ignoresSafeArea(edges: .top)
             .background(Color(.systemGroupedBackground))
             .sheet(item: $selectedBet) { bet in
                 UpdateResultSheet(bet: bet)
             }
-            .animation(.easeInOut(duration: 0.25), value: animationKey)
         }
+        .task { await service.fetchToday() }
     }
 
     // MARK: - Header
@@ -81,13 +81,10 @@ struct TodayView: View {
                 .frame(height: headerHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()
-
             LinearGradient(
                 colors: [Color.black.opacity(0.60), Color.black.opacity(0.10)],
-                startPoint: .bottom,
-                endPoint: .top
+                startPoint: .bottom, endPoint: .top
             )
-
             Text("Today")
                 .font(.system(size: 44, weight: .bold))
                 .foregroundColor(.white)
@@ -123,17 +120,13 @@ struct TodayView: View {
 
     private var searchBar: some View {
         HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
+            Image(systemName: "magnifyingglass").foregroundColor(.secondary)
             TextField("Search bets...", text: $searchText)
                 .autocorrectionDisabled(true)
                 .textInputAutocapitalization(.never)
             if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
                 }
             }
         }
@@ -147,10 +140,9 @@ struct TodayView: View {
     // MARK: - Daily Total Bar
 
     private var dailyTotalBar: some View {
-        let total = settledTodayBets.reduce(0) { $0 + ($1.net ?? 0) }
+        let total = settledBets.reduce(0.0) { $0 + ($1.net ?? 0) }
         return HStack {
-            Text("Today's Net")
-                .font(.headline)
+            Text("Today's Net").font(.headline)
             Spacer()
             Text(formatted(total))
                 .font(.headline.weight(.bold))
@@ -161,18 +153,6 @@ struct TodayView: View {
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
-        .animation(.easeInOut(duration: 0.25), value: total)
-    }
-
-    private func formatted(_ value: Double) -> String {
-        let abs = Swift.abs(value)
-        let f = NumberFormatter()
-        f.numberStyle = .currency
-        f.currencyCode = "USD"
-        f.minimumFractionDigits = 2
-        f.maximumFractionDigits = 2
-        let str = f.string(from: NSNumber(value: abs)) ?? "$0.00"
-        return value >= 0 ? "+\(str)" : "-\(str)"
     }
 
     // MARK: - Section + Cards
@@ -190,7 +170,7 @@ struct TodayView: View {
                 BetCard(bet: bet) { selectedBet = bet }
                     .contextMenu {
                         Button(role: .destructive) {
-                            context.delete(bet)
+                            Task { try? await service.delete(id: bet.id) }
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -202,21 +182,10 @@ struct TodayView: View {
 
     // MARK: - Data
 
-    private var todayBets: [Bet] {
-        let cal = Calendar.current
-        let todayComponents = cal.dateComponents([.year, .month, .day], from: Date())
-        let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: Date())) ?? Date()
-
-        let dayFiltered = bets.filter { bet in
-            let betComponents = cal.dateComponents([.year, .month, .day], from: bet.eventDate)
-            let isToday = betComponents.year == todayComponents.year &&
-                          betComponents.month == todayComponents.month &&
-                          betComponents.day == todayComponents.day
-            return bet.net != nil ? isToday : bet.eventDate < end
-        }
-
-        let sportFiltered = sportFilter == "All" ? dayFiltered : dayFiltered.filter { $0.sport == sportFilter }
-
+    private var filteredBets: [Bet] {
+        let sportFiltered = sportFilter == "All"
+            ? service.todayBets
+            : service.todayBets.filter { $0.sport == sportFilter }
         guard !searchText.isEmpty else { return sportFiltered }
         let query = searchText.lowercased()
         return sportFiltered.filter {
@@ -224,16 +193,20 @@ struct TodayView: View {
         }
     }
 
-    private var settledTodayBets: [Bet] { todayBets.filter { $0.net != nil } }
-    private var pendingBets: [Bet] { todayBets.filter { $0.net == nil }.sorted { $0.eventDate < $1.eventDate } }
-    private var winBets:     [Bet] { todayBets.filter { ($0.net ?? 0) > 0 }.sorted { $0.createdAt < $1.createdAt } }
-    private var lossBets:    [Bet] { todayBets.filter { ($0.net ?? 0) < 0 }.sorted { $0.createdAt < $1.createdAt } }
-    private var pushBets:    [Bet] { todayBets.filter { $0.net == 0 }.sorted { $0.createdAt < $1.createdAt } }
+    private var settledBets: [Bet] { filteredBets.filter { !$0.isPending } }
+    private var pendingBets: [Bet] { filteredBets.filter { $0.isPending }.sorted { $0.eventDate < $1.eventDate } }
+    private var winBets:     [Bet] { filteredBets.filter { $0.isWin }.sorted { $0.createdAt < $1.createdAt } }
+    private var lossBets:    [Bet] { filteredBets.filter { $0.isLoss }.sorted { $0.createdAt < $1.createdAt } }
+    private var pushBets:    [Bet] { filteredBets.filter { $0.isPush }.sorted { $0.createdAt < $1.createdAt } }
 
-    private var animationKey: String {
-        todayBets.sorted { $0.createdAt < $1.createdAt }.map { bet in
-            guard let net = bet.net else { return "N" }
-            return net > 0 ? "W" : (net < 0 ? "L" : "P")
-        }.joined()
+    private func formatted(_ value: Double) -> String {
+        let abs = Swift.abs(value)
+        let f = NumberFormatter()
+        f.numberStyle = .currency
+        f.currencyCode = "USD"
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        let str = f.string(from: NSNumber(value: abs)) ?? "$0.00"
+        return value >= 0 ? "+\(str)" : "-\(str)"
     }
 }

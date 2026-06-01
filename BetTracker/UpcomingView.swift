@@ -4,11 +4,10 @@
 //
 
 import SwiftUI
-import SwiftData
 
 struct UpcomingView: View {
-    @Environment(\.modelContext) private var context
-    @Query private var bets: [Bet]
+    @EnvironmentObject var service: BetService
+
     @State private var sportFilter: String = "All"
     @State private var selectedBet: Bet?
     @State private var searchText: String = ""
@@ -21,25 +20,23 @@ struct UpcomingView: View {
                 LazyVStack(alignment: .leading, spacing: 14) {
 
                     headerView
+                    filterBar.padding(.horizontal)
+                    searchBar.padding(.horizontal)
 
-                    filterBar
-                        .padding(.horizontal)
-
-                    searchBar
-                        .padding(.horizontal)
-
-                    if upcomingBets.isEmpty {
-                        Text("No upcoming bets.")
+                    if service.isLoading {
+                        ProgressView().padding(.horizontal).padding(.top, 8)
+                    } else if filteredBets.isEmpty {
+                        Text(service.errorMessage != nil ? "Failed to load bets." : "No upcoming bets.")
                             .foregroundColor(.secondary)
                             .padding(.horizontal)
                             .padding(.top, 8)
                     } else {
                         VStack(spacing: 10) {
-                            ForEach(upcomingBets) { bet in
+                            ForEach(filteredBets) { bet in
                                 BetCard(bet: bet) { selectedBet = bet }
                                     .contextMenu {
                                         Button(role: .destructive) {
-                                            context.delete(bet)
+                                            Task { try? await service.delete(id: bet.id) }
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }
@@ -52,6 +49,7 @@ struct UpcomingView: View {
                     Spacer(minLength: 20)
                 }
             }
+            .refreshable { await service.fetchUpcoming() }
             .ignoresSafeArea(edges: .top)
             .toolbar(.hidden, for: .navigationBar)
             .background(Color(.systemGroupedBackground))
@@ -59,6 +57,7 @@ struct UpcomingView: View {
                 UpdateResultSheet(bet: bet)
             }
         }
+        .task { await service.fetchUpcoming() }
     }
 
     // MARK: - Header
@@ -71,13 +70,10 @@ struct UpcomingView: View {
                 .frame(height: headerHeight)
                 .frame(maxWidth: .infinity)
                 .clipped()
-
             LinearGradient(
                 colors: [Color.black.opacity(0.60), Color.black.opacity(0.10)],
-                startPoint: .bottom,
-                endPoint: .top
+                startPoint: .bottom, endPoint: .top
             )
-
             Text("Upcoming")
                 .font(.system(size: 44, weight: .bold))
                 .foregroundColor(.white)
@@ -112,17 +108,13 @@ struct UpcomingView: View {
 
     private var searchBar: some View {
         HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
+            Image(systemName: "magnifyingglass").foregroundColor(.secondary)
             TextField("Search bets...", text: $searchText)
                 .autocorrectionDisabled(true)
                 .textInputAutocapitalization(.never)
             if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
                 }
             }
         }
@@ -135,14 +127,13 @@ struct UpcomingView: View {
 
     // MARK: - Data
 
-    private var upcomingBets: [Bet] {
-        let now = Date()
-        let filtered = bets.filter { $0.eventDate > now && $0.net == nil }
-        let sportFiltered = sportFilter == "All" ? filtered : filtered.filter { $0.sport == sportFilter }
-        let sorted = sportFiltered.sorted { $0.eventDate < $1.eventDate }
-        guard !searchText.isEmpty else { return sorted }
+    private var filteredBets: [Bet] {
+        let sportFiltered = sportFilter == "All"
+            ? service.upcomingBets
+            : service.upcomingBets.filter { $0.sport == sportFilter }
+        guard !searchText.isEmpty else { return sportFiltered }
         let query = searchText.lowercased()
-        return sorted.filter {
+        return sportFiltered.filter {
             $0.wagerText.lowercased().contains(query) || $0.sport.lowercased().contains(query)
         }
     }

@@ -1,6 +1,10 @@
+//
+//  BetCard.swift
+//  BetTracker
+//
+
 import SwiftUI
 
-/// A reusable card for displaying a bet. Pass an optional `onTap` to make it tappable.
 struct BetCard: View {
     let bet: Bet
     var onTap: (() -> Void)? = nil
@@ -8,20 +12,31 @@ struct BetCard: View {
     var body: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("\(bet.sport) • \(bet.wagerText)")
-                    .font(.headline)
-                    .foregroundColor(foregroundColor)
+
+                // Sport + wager + badges
+                HStack(spacing: 6) {
+                    Text("\(bet.sport) • \(bet.wagerText)")
+                        .font(.headline)
+                        .foregroundColor(foregroundColor)
+
+                    if bet.isProp {
+                        badge("Prop")
+                    }
+                    if bet.isParlay {
+                        badge("Parlay")
+                    }
+                }
 
                 Text("Bet \(money(bet.betAmount)) → Win \(money(bet.payoutAmount))")
                     .font(.subheadline)
                     .foregroundColor(foregroundColor.opacity(0.85))
 
-                if let settledAt = bet.settledAt {
-                    Text("Settled: \(shortDate(settledAt))")
+                if let settled = bet.settledAtFormatted {
+                    Text("Settled: \(settled)")
                         .font(.subheadline)
                         .foregroundColor(foregroundColor.opacity(0.85))
                 } else {
-                    Text("Event: \(shortDate(bet.eventDate))")
+                    Text("Event: \(bet.eventDateFormatted)")
                         .font(.subheadline)
                         .foregroundColor(foregroundColor.opacity(0.85))
                 }
@@ -44,9 +59,20 @@ struct BetCard: View {
         .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 6)
-        .animation(.easeInOut(duration: 0.25), value: bet.net)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
+    }
+
+    // MARK: - Badge
+
+    private func badge(_ label: String) -> some View {
+        Text(label)
+            .font(.caption.weight(.semibold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(foregroundColor.opacity(0.18))
+            .foregroundColor(foregroundColor)
+            .clipShape(Capsule())
     }
 
     // MARK: - Styling
@@ -70,11 +96,5 @@ struct BetCard: View {
         f.minimumFractionDigits = 2
         f.maximumFractionDigits = 2
         return f.string(from: NSNumber(value: value)) ?? "$0.00"
-    }
-
-    private func shortDate(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        return f.string(from: date)
     }
 }

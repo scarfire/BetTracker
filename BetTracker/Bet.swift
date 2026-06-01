@@ -1,56 +1,64 @@
-// Bet.swift
-// BetTracker
 //
-// Updated: added parlaySize (1=straight, 2-10=parlay legs) and isProp flag
+//  Bet.swift
+//  BetTracker
+//
 
 import Foundation
-import SwiftData
 
-@Model
-final class Bet {
+struct Bet: Identifiable, Codable {
+    let id: Int
+    let sport: String
+    let wagerText: String
+    let isProp: Bool
+    let isParlay: Bool
+    let eventDate: String       // "YYYY-MM-DD" from MySQL DATE
+    let betAmount: Double
+    let payoutAmount: Double
+    let originalPayoutAmount: Double
+    let net: Double?             // nil = pending
+    let settledAt: String?       // "YYYY-MM-DD HH:MM:SS" or nil
+    let createdAt: String
 
-    var id: UUID = UUID()
-    var createdAt: Date = Date()
-    var eventDate: Date = Date()
-    var settledAt: Date? = nil
+    enum CodingKeys: String, CodingKey {
+        case id
+        case sport
+        case wagerText          = "wager_text"
+        case isProp             = "is_prop"
+        case isParlay           = "is_parlay"
+        case eventDate          = "event_date"
+        case betAmount          = "bet_amount"
+        case payoutAmount       = "payout_amount"
+        case originalPayoutAmount = "original_payout_amount"
+        case net
+        case settledAt          = "settled_at"
+        case createdAt          = "created_at"
+    }
 
-    var sport: String = ""
-    var wagerText: String = ""
+    // MARK: - Derived display values
 
-    var parlaySize: Int = 1       // 1 = straight bet, 2-10 = number of legs
-    var isProp: Bool = false      // true if any prop involved
+    var eventDateFormatted: String { formatDate(eventDate) }
+    var settledAtFormatted: String? { settledAt.map { formatDateTime($0) } }
 
-    var betAmount: Double = 0
-    var payoutAmount: Double = 0
-    var originalPayoutAmount: Double = 0
+    var isPending: Bool { net == nil }
+    var isWin:     Bool { (net ?? 0) > 0 }
+    var isLoss:    Bool { (net ?? 0) < 0 }
+    var isPush:    Bool { net != nil && net == 0 }
 
-    var net: Double? = nil        // nil = pending, positive = won, negative = lost, 0 = push
+    private func formatDate(_ str: String) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        guard let d = f.date(from: str) else { return str }
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f.string(from: d)
+    }
 
-    init(
-        id: UUID = UUID(),
-        createdAt: Date = Date(),
-        eventDate: Date = Date(),
-        settledAt: Date? = nil,
-        sport: String = "",
-        wagerText: String = "",
-        parlaySize: Int = 1,
-        isProp: Bool = false,
-        betAmount: Double = 0,
-        payoutAmount: Double = 0,
-        originalPayoutAmount: Double = 0,
-        net: Double? = nil
-    ) {
-        self.id = id
-        self.createdAt = createdAt
-        self.eventDate = eventDate
-        self.settledAt = settledAt
-        self.sport = sport
-        self.wagerText = wagerText
-        self.parlaySize = parlaySize
-        self.isProp = isProp
-        self.betAmount = betAmount
-        self.payoutAmount = payoutAmount
-        self.originalPayoutAmount = originalPayoutAmount
-        self.net = net
+    private func formatDateTime(_ str: String) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        guard let d = f.date(from: str) else { return str }
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f.string(from: d)
     }
 }

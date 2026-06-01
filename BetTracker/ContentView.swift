@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import SwiftData
 
 enum Sport: String, CaseIterable, Identifiable {
     case nhl = "NHL"
@@ -36,11 +35,6 @@ struct ContentView: View {
             SettledView()
                 .tabItem {
                     Label("Settled", systemImage: "checkmark.circle")
-                }
-
-            TotalsView()
-                .tabItem {
-                    Label("Totals", systemImage: "dollarsign")
                 }
 
             AddBetView()

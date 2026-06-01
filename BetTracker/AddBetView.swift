@@ -2,39 +2,30 @@
 //  AddBetView.swift
 //  BetTracker
 //
-//  Updated: added parlaySize slider and isProp toggle.
-//  All original logic (What field, slash amounts, toast, etc.) unchanged.
-//
 
 import SwiftUI
-import SwiftData
 
 struct AddBetView: View {
-    @Environment(\.modelContext) private var context
+    @EnvironmentObject var service: BetService
 
-    @AppStorage("lastSport")      private var lastSport: String = Sport.nhl.rawValue
-    @AppStorage("lastParlaySize") private var lastParlaySize: Int = 1
+    @AppStorage("lastSport") private var lastSport: String = Sport.nhl.rawValue
 
     @State private var whatText: String = ""
     @State private var whatAmountText: String = ""
     @State private var amountText: String = ""
     @State private var errorMessage: String?
 
-    @State private var parlaySize: Int = 1      // 1 = straight, 2-10 = legs
+    @State private var isParlay: Bool = false
     @State private var isProp: Bool = false
 
     @State private var eventDate: Date = Date()
     @State private var showEventDatePicker: Bool = false
 
     @State private var showToast: Bool = false
-    @State private var toastText: String = "Saved"
+    @State private var isSaving: Bool = false
 
     @FocusState private var focusedField: Field?
     enum Field { case what, whatAmount, amount }
-
-    var parlayLabel: String {
-        parlaySize == 1 ? "Straight" : "\(parlaySize)-Leg Parlay"
-    }
 
     var body: some View {
         NavigationStack {
@@ -50,48 +41,19 @@ struct AddBetView: View {
                         }
                         .pickerStyle(.segmented)
 
-                        // ── Parlay slider ─────────────────────────────────
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack {
-                                Text("Parlay")
-                                    .font(.headline)
-                                Spacer()
-                                Text(parlayLabel)
-                                    .font(.subheadline)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(parlaySize > 1 ? Color.accentColor : .secondary)
-                            }
-                            Slider(
-                                value: Binding(
-                                    get: { Double(parlaySize) },
-                                    set: {
-                                        parlaySize = Int($0.rounded())
-                                        lastParlaySize = parlaySize
-                                    }
-                                ),
-                                in: 1...10, step: 1
-                            )
-                            .tint(parlaySize > 1 ? .accentColor : .secondary)
-                            HStack {
-                                Text("Straight")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("10-Leg")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
+                        // ── Parlay toggle ─────────────────────────────────
+                        Toggle(isOn: $isParlay) {
+                            Text("Parlay").font(.headline)
                         }
+                        .tint(.accentColor)
 
                         // ── Prop toggle ───────────────────────────────────
                         Toggle(isOn: $isProp) {
                             HStack(spacing: 6) {
-                                Text("Prop Bet")
-                                    .font(.headline)
+                                Text("Prop Bet").font(.headline)
                                 if isProp {
                                     Text("(player / team stat)")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .font(.caption).foregroundStyle(.secondary)
                                 }
                             }
                         }
@@ -99,8 +61,7 @@ struct AddBetView: View {
 
                         // ── Event Date ────────────────────────────────────
                         HStack {
-                            Text("Event Date")
-                                .font(.headline)
+                            Text("Event Date").font(.headline)
                             Spacer()
                             Button {
                                 focusedField = nil
@@ -108,8 +69,7 @@ struct AddBetView: View {
                                     showEventDatePicker.toggle()
                                 }
                             } label: {
-                                Text(shortDate(eventDate))
-                                    .fontWeight(.semibold)
+                                Text(shortDate(eventDate)).fontWeight(.semibold)
                             }
                             .buttonStyle(.bordered)
                         }
@@ -125,8 +85,7 @@ struct AddBetView: View {
 
                         // ── What ──────────────────────────────────────────
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("What")
-                                .font(.headline)
+                            Text("What").font(.headline)
 
                             HStack(spacing: 10) {
                                 quickAppendButton("ML",    "ML ",    nextFocus: .amount)
@@ -152,9 +111,7 @@ struct AddBetView: View {
                                     .layoutPriority(1)
 
                                 TextField("6.5", text: $whatAmountText)
-#if os(iOS)
                                     .keyboardType(.decimalPad)
-#endif
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled(true)
                                     .onChange(of: whatAmountText) { _, newValue in
@@ -171,16 +128,11 @@ struct AddBetView: View {
 
                         // ── Bet / Payout ──────────────────────────────────
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Bet / Payout")
-                                .font(.headline)
+                            Text("Bet / Payout").font(.headline)
 
                             HStack(spacing: 10) {
-                                amountButton(1)
-                                amountButton(2)
-                                amountButton(3)
-                                amountButton(5)
-                                amountButton(7)
-                                amountButton(10)
+                                amountButton(1); amountButton(2); amountButton(3)
+                                amountButton(5); amountButton(7); amountButton(10)
                             }
 
                             TextField("5/9.32", text: $amountText)
@@ -194,14 +146,13 @@ struct AddBetView: View {
 
                             HStack {
                                 if let errorMessage {
-                                    Text(errorMessage)
-                                        .foregroundColor(.red)
-                                        .font(.caption)
+                                    Text(errorMessage).foregroundColor(.red).font(.caption)
                                 }
                                 Spacer()
-                                Button("Save") { saveBet() }
+                                Button("Save") { Task { await saveBet() } }
                                     .fontWeight(.semibold)
                                     .buttonStyle(.borderedProminent)
+                                    .disabled(isSaving)
                             }
                         }
 
@@ -211,9 +162,8 @@ struct AddBetView: View {
                 }
                 .navigationBarHidden(true)
                 .onAppear {
-                    focusedField   = .what
-                    eventDate      = Calendar.current.startOfDay(for: eventDate)
-                    parlaySize     = lastParlaySize      // restore persisted parlay
+                    focusedField = .what
+                    eventDate    = Calendar.current.startOfDay(for: eventDate)
                     applyDefaultBetPrefixIfNeeded(force: true)
                 }
                 .onChange(of: lastSport) { _, _ in
@@ -221,7 +171,7 @@ struct AddBetView: View {
                 }
 
                 if showToast {
-                    Text(toastText)
+                    Text("Saved ✓")
                         .font(.headline)
                         .foregroundColor(.white)
                         .padding(.horizontal, 14)
@@ -234,9 +184,9 @@ struct AddBetView: View {
         }
     }
 
-    // ── Save ──────────────────────────────────────────────────────────────────
+    // MARK: - Save
 
-    private func saveBet() {
+    private func saveBet() async {
         errorMessage = nil
 
         let baseWhat = whatText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -258,36 +208,39 @@ struct AddBetView: View {
 
         setLastBetAmount(parsed.bet, for: lastSport)
 
-        let bet = Bet(
-            createdAt:            Date(),
-            eventDate:            eventDate,
-            settledAt:            nil,
-            sport:                lastSport,
-            wagerText:            combinedWhat,
-            parlaySize:           parlaySize,    // ← new field
-            isProp:               isProp,        // ← new field
-            betAmount:            parsed.bet,
-            payoutAmount:         parsed.payout,
-            originalPayoutAmount: parsed.payout,
-            net:                  nil
-        )
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let eventDateString = dateFormatter.string(from: eventDate)
 
-        context.insert(bet)
+        isSaving = true
+        do {
+            try await service.createBet(
+                sport:       lastSport,
+                wagerText:   combinedWhat,
+                isProp:      isProp,
+                isParlay:    isParlay,
+                eventDate:   eventDateString,
+                betAmount:   parsed.bet,
+                payoutAmount: parsed.payout
+            )
 
-        focusedField = nil
-        toastText    = "Saved ✓"
-        showToast    = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { showToast = false }
+            focusedField   = nil
+            showToast      = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { showToast = false }
 
-        // Reset wager fields — keep sport, parlay, date
-        whatText       = ""
-        whatAmountText = ""
-        amountText     = ""
-        isProp         = false      // reset prop after each save
-        applyDefaultBetPrefixIfNeeded(force: true)
+            whatText       = ""
+            whatAmountText = ""
+            amountText     = ""
+            isProp         = false
+            applyDefaultBetPrefixIfNeeded(force: true)
+
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isSaving = false
     }
 
-    // ── Helpers (all unchanged from original) ─────────────────────────────────
+    // MARK: - Helpers
 
     private func quickAppendButton(_ label: String, _ token: String, nextFocus: Field) -> some View {
         Button(label) {
@@ -341,26 +294,22 @@ struct AddBetView: View {
     }
 
     private func shortDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter.string(from: date)
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        return f.string(from: date)
     }
 
     private func lastBetKey(for sport: String) -> String { "lastBetAmount_\(sport)" }
-
     private func getLastBetAmount(for sport: String) -> Double? {
         let v = UserDefaults.standard.double(forKey: lastBetKey(for: sport))
         return v > 0 ? v : nil
     }
-
     private func setLastBetAmount(_ value: Double, for sport: String) {
         UserDefaults.standard.set(value, forKey: lastBetKey(for: sport))
     }
-
     private func betPrefix(_ value: Double) -> String {
         value == floor(value) ? "\(Int(value))/" : "\(value)/"
     }
-
     private func applyDefaultBetPrefixIfNeeded(force: Bool = false) {
         guard let last = getLastBetAmount(for: lastSport) else { return }
         if force || amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -369,7 +318,7 @@ struct AddBetView: View {
     }
 }
 
-// ── SlashAmountParser (unchanged) ─────────────────────────────────────────────
+// MARK: - SlashAmountParser
 
 struct SlashAmountParser {
     struct Parsed { let bet: Double; let payout: Double }
