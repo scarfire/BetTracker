@@ -45,7 +45,11 @@ class BetService: ObservableObject {
 
         do {
             let (data, _) = try await URLSession.shared.data(for: request(url))
-            let bets = try JSONDecoder().decode([Bet].self, from: data)
+            guard let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                await MainActor.run { self.errorMessage = "Invalid response format" }
+                return
+            }
+            let bets = jsonArray.compactMap { Bet(json: $0) }
             await MainActor.run { assign(bets) }
         } catch {
             await MainActor.run { self.errorMessage = error.localizedDescription }
@@ -110,7 +114,7 @@ class BetService: ObservableObject {
 
         let (data, response) = try await URLSession.shared.data(for: req)
         if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
-            let msg = (try? JSONDecoder().decode([String: String].self, from: data))?["error"] ?? "Server error"
+            let msg = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["error"] as? String ?? "Server error"
             throw NSError(domain: "BetService", code: http.statusCode,
                           userInfo: [NSLocalizedDescriptionKey: msg])
         }
