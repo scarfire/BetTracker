@@ -13,7 +13,7 @@ enum Sport: String, CaseIterable, Identifiable {
     case mlb = "MLB"
     case cfb = "NCAAF"
     case cbb = "NCAAB"
-    case mix = "MIX"
+    case misc = "MISC"
 //    case prop = "Prop"
 
     var id: String { rawValue }
