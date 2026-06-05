@@ -10,6 +10,7 @@ struct SettledView: View {
 
     @State private var sportFilter: String = "All"
     @State private var searchText: String = ""
+    @State private var selectedBet: Bet?
 
     private let headerHeight: CGFloat = 140
 
@@ -37,8 +38,13 @@ struct SettledView: View {
                         } else {
                             VStack(spacing: 10) {
                                 ForEach(filteredBets) { bet in
-                                    BetCard(bet: bet)
+                                    BetCard(bet: bet) { selectedBet = bet }
                                         .contextMenu {
+                                            Button {
+                                                selectedBet = bet
+                                            } label: {
+                                                Label("Edit / Settle", systemImage: "pencil")
+                                            }
                                             Button(role: .destructive) {
                                                 Task { try? await service.delete(id: bet.id) }
                                             } label: {
@@ -58,6 +64,9 @@ struct SettledView: View {
             .ignoresSafeArea(edges: .top)
             .toolbar(.hidden, for: .navigationBar)
             .background(Color(.systemGroupedBackground))
+            .sheet(item: $selectedBet) { bet in
+                UpdateResultSheet(bet: bet)
+            }
         }
         .task { await service.fetchSettled() }
         .onAppear { Task { await service.fetchSettled() } }
