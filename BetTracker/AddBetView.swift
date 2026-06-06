@@ -161,6 +161,7 @@ struct AddBetView: View {
                     .padding()
                 }
                 .navigationBarHidden(true)
+                .scrollDismissesKeyboard(.immediately)
                 .onAppear {
                     focusedField = .what
                     eventDate    = Calendar.current.startOfDay(for: eventDate)

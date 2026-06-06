@@ -60,6 +60,7 @@ struct TodayView: View {
                 }
                 .padding(.bottom, 28)
             }
+            .scrollDismissesKeyboard(.immediately)
             .refreshable { await service.fetchToday() }
             .toolbar(.hidden, for: .navigationBar)
             .ignoresSafeArea(edges: .top)

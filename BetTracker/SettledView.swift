@@ -60,6 +60,7 @@ struct SettledView: View {
                     Spacer(minLength: 20)
                 }
             }
+            .scrollDismissesKeyboard(.immediately)
             .refreshable { await service.fetchSettled() }
             .ignoresSafeArea(edges: .top)
             .toolbar(.hidden, for: .navigationBar)

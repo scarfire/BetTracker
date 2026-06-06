@@ -49,6 +49,7 @@ struct UpcomingView: View {
                     Spacer(minLength: 20)
                 }
             }
+            .scrollDismissesKeyboard(.immediately)
             .refreshable { await service.fetchUpcoming() }
             .ignoresSafeArea(edges: .top)
             .toolbar(.hidden, for: .navigationBar)
