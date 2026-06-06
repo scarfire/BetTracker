@@ -100,7 +100,7 @@ struct UpcomingView: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
-        .background(.white)
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
@@ -121,7 +121,7 @@ struct UpcomingView: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
-        .background(.white)
+        .background(Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }

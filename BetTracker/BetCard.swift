@@ -78,7 +78,7 @@ struct BetCard: View {
     // MARK: - Styling
 
     private var background: Color {
-        guard let net = bet.net else { return .white }
+        guard let net = bet.net else { return Color(.secondarySystemGroupedBackground) }
         if net > 0 { return Color.blue.opacity(0.85) }
         if net < 0 { return Color.red.opacity(0.85) }
         return Color.gray.opacity(0.70)
