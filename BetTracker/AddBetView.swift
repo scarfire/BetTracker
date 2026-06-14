@@ -233,6 +233,7 @@ struct AddBetView: View {
             whatAmountText = ""
             amountText     = ""
             isProp         = false
+            isParlay       = false
             applyDefaultBetPrefixIfNeeded(force: true)
 
         } catch {
