@@ -90,6 +90,15 @@ class BetService: ObservableObject {
         await fetchSettled()
     }
 
+    // MARK: - Edit
+
+    func editBet(id: Int, body: [String: Any]) async throws {
+        try await mutate(method: "PUT", id: id, body: body)
+        await fetchToday()
+        await fetchSettled()
+        await fetchUpcoming()
+    }
+
     // MARK: - Delete
 
     func delete(id: Int) async throws {

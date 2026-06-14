@@ -40,11 +40,6 @@ struct SettledView: View {
                                 ForEach(filteredBets) { bet in
                                     BetCard(bet: bet) { selectedBet = bet }
                                         .contextMenu {
-                                            Button {
-                                                selectedBet = bet
-                                            } label: {
-                                                Label("Edit / Settle", systemImage: "pencil")
-                                            }
                                             Button(role: .destructive) {
                                                 Task { try? await service.delete(id: bet.id) }
                                             } label: {
