@@ -168,7 +168,7 @@ struct AddBetView: View {
                     applyDefaultBetPrefixIfNeeded(force: true)
                 }
                 .onChange(of: lastSport) { _, _ in
-                    applyDefaultBetPrefixIfNeeded(force: true)
+                    applyDefaultBetPrefixIfNeeded(force: false)
                 }
 
                 if showToast {
