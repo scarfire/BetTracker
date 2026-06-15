@@ -334,7 +334,7 @@ struct SlashAmountParser {
         guard parts.count == 2 else { return nil }
         guard let bet    = Double(parts[0]),
               let payout = Double(parts[1]),
-              bet > 0, payout > 0 else { return nil }
+              bet >= 0, payout > 0 else { return nil }
         return Parsed(bet: bet, payout: payout)
     }
 }
