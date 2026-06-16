@@ -213,9 +213,9 @@ struct UpdateResultSheet: View {
 
     private func saveEdit() async {
         errorMessage = nil
-        guard let betAmt = Double(editBetAmount), betAmt > 0,
-              let payAmt = Double(editPayoutAmount), payAmt > betAmt else {
-            errorMessage = "Check amounts — payout must be greater than bet."
+        guard let betAmt = Double(editBetAmount), betAmt >= 0,
+              let payAmt = Double(editPayoutAmount), payAmt > 0 else {
+            errorMessage = "Check amounts — payout must be greater than 0."
             return
         }
         guard !editWagerText.trimmingCharacters(in: .whitespaces).isEmpty else {
