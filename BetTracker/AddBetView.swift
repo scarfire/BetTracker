@@ -88,7 +88,7 @@ struct AddBetView: View {
                             Text("What").font(.headline)
 
                             HStack(spacing: 10) {
-                                quickAppendButton("ML",    "ML ",    nextFocus: .amount)
+                                quickAppendButton("ML",    "TO WIN",    nextFocus: .amount)
                                 quickAppendButton("OVER",  "OVER ",  nextFocus: .whatAmount)
                                 quickAppendButton("UNDER", "UNDER ", nextFocus: .whatAmount)
                                 quickAppendButton("PLUS",  "+",      nextFocus: .whatAmount)
@@ -135,7 +135,7 @@ struct AddBetView: View {
                                 amountButton(5); amountButton(7); amountButton(10)
                             }
 
-                            TextField("5/9.32", text: $amountText)
+                            TextField("1/", text: $amountText)
                                 .keyboardType(.numbersAndPunctuation)
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled(true)
@@ -202,7 +202,7 @@ struct AddBetView: View {
         }
 
         guard let parsed = SlashAmountParser.parse(amountText) else {
-            errorMessage = "Enter amounts like 5/9.32 (bet/payout)."
+            errorMessage = "Enter amounts like 1/1.92 (bet/payout)."
             focusedField = .amount
             return
         }

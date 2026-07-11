@@ -161,7 +161,7 @@ struct UpdateResultSheet: View {
             }
 
             Section("Wager") {
-                TextField("e.g. TBL ML", text: $editWagerText)
+                TextField("e.g. TBL TO WIN", text: $editWagerText)
                     .autocorrectionDisabled(true)
                     .textInputAutocapitalization(.characters)
             }
@@ -170,7 +170,7 @@ struct UpdateResultSheet: View {
                 HStack {
                     Text("Bet")
                     Spacer()
-                    TextField("5.00", text: $editBetAmount)
+                    TextField("1.00", text: $editBetAmount)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 100)
@@ -178,7 +178,7 @@ struct UpdateResultSheet: View {
                 HStack {
                     Text("Payout")
                     Spacer()
-                    TextField("9.45", text: $editPayoutAmount)
+                    TextField("1.92", text: $editPayoutAmount)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .frame(width: 100)
