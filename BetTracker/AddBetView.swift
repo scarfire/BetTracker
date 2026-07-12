@@ -137,6 +137,11 @@ struct AddBetView: View {
                                 .focused($focusedField, equals: .amount)
 
                             HStack {
+                                Button("Cancel") { resetForm() }
+                                    .fontWeight(.semibold)
+                                    .buttonStyle(.bordered)
+                                    .tint(.red)
+
                                 if let errorMessage {
                                     Text(errorMessage).foregroundColor(.red).font(.caption)
                                 }
@@ -221,16 +226,24 @@ struct AddBetView: View {
             showToast      = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { showToast = false }
 
-            whatText       = ""
-            whatAmountText = ""
-            amountText     = ""
-            betFlag        = .none
-            applyDefaultBetPrefixIfNeeded(force: true)
+            resetForm()
 
         } catch {
             errorMessage = error.localizedDescription
         }
         isSaving = false
+    }
+
+    private func resetForm() {
+        focusedField        = nil
+        errorMessage         = nil
+        whatText             = ""
+        whatAmountText       = ""
+        amountText           = ""
+        betFlag              = .none
+        eventDate            = Calendar.current.startOfDay(for: Date())
+        showEventDatePicker  = false
+        applyDefaultBetPrefixIfNeeded(force: true)
     }
 
     // MARK: - Helpers
