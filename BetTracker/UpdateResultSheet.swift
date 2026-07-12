@@ -23,8 +23,7 @@ struct UpdateResultSheet: View {
     @State private var editEventDate: String = ""
     @State private var editBetAmount: String = ""
     @State private var editPayoutAmount: String = ""
-    @State private var editIsProp: Bool = false
-    @State private var editIsParlay: Bool = false
+    @State private var editBetFlag: BetFlagOption = .none
 
     enum Mode { case settle, edit }
 
@@ -149,9 +148,13 @@ struct UpdateResultSheet: View {
                 .pickerStyle(.segmented)
             }
 
-            Section("Flags") {
-                Toggle("Prop Bet", isOn: $editIsProp)
-                Toggle("Parlay", isOn: $editIsParlay)
+            Section("Bet Type") {
+                Picker("Bet Type", selection: $editBetFlag) {
+                    ForEach(BetFlagOption.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .pickerStyle(.segmented)
             }
 
             Section("Event Date") {
@@ -207,8 +210,7 @@ struct UpdateResultSheet: View {
         editEventDate    = bet.eventDate
         editBetAmount    = String(format: "%.2f", bet.betAmount)
         editPayoutAmount = String(format: "%.2f", bet.payoutAmount)
-        editIsProp       = bet.isProp
-        editIsParlay     = bet.isParlay
+        editBetFlag      = BetFlagOption.from(isParlay: bet.isParlay, isProp: bet.isProp)
     }
 
     private func saveEdit() async {
@@ -229,8 +231,8 @@ struct UpdateResultSheet: View {
                 "action":         "edit",
                 "sport":          editSport,
                 "wager_text":     editWagerText.uppercased(),
-                "is_prop":        editIsProp ? 1 : 0,
-                "is_parlay":      editIsParlay ? 1 : 0,
+                "is_prop":        editBetFlag.isProp ? 1 : 0,
+                "is_parlay":      editBetFlag.isParlay ? 1 : 0,
                 "event_date":     editEventDate,
                 "bet_amount":     betAmt,
                 "payout_amount":  payAmt

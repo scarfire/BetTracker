@@ -15,8 +15,7 @@ struct AddBetView: View {
     @State private var amountText: String = ""
     @State private var errorMessage: String?
 
-    @State private var isParlay: Bool = false
-    @State private var isProp: Bool = false
+    @State private var betFlag: BetFlagOption = .none
 
     @State private var eventDate: Date = Date()
     @State private var showEventDatePicker: Bool = false
@@ -41,23 +40,13 @@ struct AddBetView: View {
                         }
                         .pickerStyle(.segmented)
 
-                        // ── Parlay toggle ─────────────────────────────────
-                        Toggle(isOn: $isParlay) {
-                            Text("Parlay").font(.headline)
-                        }
-                        .tint(.accentColor)
-
-                        // ── Prop toggle ───────────────────────────────────
-                        Toggle(isOn: $isProp) {
-                            HStack(spacing: 6) {
-                                Text("Prop Bet").font(.headline)
-                                if isProp {
-                                    Text("(player / team stat)")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
+                        // ── Parlay / Prop ─────────────────────────────────
+                        Picker("Bet Type", selection: $betFlag) {
+                            ForEach(BetFlagOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
                             }
                         }
-                        .tint(.accentColor)
+                        .pickerStyle(.segmented)
 
                         // ── Event Date ────────────────────────────────────
                         HStack {
@@ -218,8 +207,8 @@ struct AddBetView: View {
             try await service.createBet(
                 sport:       lastSport,
                 wagerText:   combinedWhat,
-                isProp:      isProp,
-                isParlay:    isParlay,
+                isProp:      betFlag.isProp,
+                isParlay:    betFlag.isParlay,
                 eventDate:   eventDateString,
                 betAmount:   parsed.bet,
                 payoutAmount: parsed.payout
@@ -232,8 +221,7 @@ struct AddBetView: View {
             whatText       = ""
             whatAmountText = ""
             amountText     = ""
-            isProp         = false
-            isParlay       = false
+            betFlag        = .none
             applyDefaultBetPrefixIfNeeded(force: true)
 
         } catch {

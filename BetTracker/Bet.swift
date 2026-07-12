@@ -5,6 +5,27 @@
 
 import Foundation
 
+enum BetFlagOption: String, CaseIterable, Identifiable {
+    case parlay = "Parlay"
+    case prop   = "Prop Bet"
+    case both   = "Both"
+    case none   = "None"
+
+    var id: String { rawValue }
+
+    var isParlay: Bool { self == .parlay || self == .both }
+    var isProp:   Bool { self == .prop   || self == .both }
+
+    static func from(isParlay: Bool, isProp: Bool) -> BetFlagOption {
+        switch (isParlay, isProp) {
+        case (true, true):   return .both
+        case (true, false):  return .parlay
+        case (false, true):  return .prop
+        case (false, false): return .none
+        }
+    }
+}
+
 struct Bet: Identifiable {
     let id: Int
     let sport: String
