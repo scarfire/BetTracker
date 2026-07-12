@@ -144,7 +144,11 @@ struct TodayView: View {
     private var dailyTotalBar: some View {
         let total = settledBets.reduce(0.0) { $0 + ($1.net ?? 0) }
         return HStack {
-            Text("Today's Net").font(.headline)
+            Text("Today's Results").font(.headline)
+            Spacer()
+            Text("\(winBets.count)-\(lossBets.count)-\(pushBets.count)")
+                .font(.headline.weight(.semibold))
+                .foregroundColor(.secondary)
             Spacer()
             Text(formatted(total))
                 .font(.headline.weight(.bold))
