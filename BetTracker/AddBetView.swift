@@ -74,15 +74,18 @@ struct AddBetView: View {
 
                         // ── What ──────────────────────────────────────────
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("What").font(.headline)
-
                             HStack(spacing: 10) {
-                                quickAppendButton("ML",    "TO WIN",    nextFocus: .amount)
-                                quickAppendButton("OVER",  "OVER ",  nextFocus: .whatAmount)
-                                quickAppendButton("UNDER", "UNDER ", nextFocus: .whatAmount)
-                                quickAppendButton("PLUS",  "+",      nextFocus: .whatAmount)
-                                quickAppendButton("MINUS", "-",      nextFocus: .whatAmount)
-                                Spacer()
+                                Text("What").font(.headline)
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 10) {
+                                        quickAppendButton("ML",    "TO WIN",    nextFocus: .amount)
+                                        quickAppendButton("OVER",  "OVER ",  nextFocus: .whatAmount)
+                                        quickAppendButton("UNDER", "UNDER ", nextFocus: .whatAmount)
+                                        quickAppendButton("PLUS",  "+",      nextFocus: .whatAmount)
+                                        quickAppendButton("MINUS", "-",      nextFocus: .whatAmount)
+                                    }
+                                }
                             }
 
                             HStack(spacing: 10) {
