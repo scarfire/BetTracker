@@ -49,7 +49,7 @@ struct TodayView: View {
                             cards(pushBets)
                         }
                         if filteredBets.isEmpty {
-                            Text(service.errorMessage != nil ? "Failed to load bets." : "No bets for today.")
+                            Text(service.errorMessage.map { "Failed to load bets: \($0)" } ?? "No bets for today.")
                                 .foregroundColor(.secondary)
                                 .padding(.horizontal)
                                 .padding(.top, 8)
