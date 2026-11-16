@@ -11,8 +11,23 @@ struct SettledView: View {
     @State private var sportFilter: String = "All"
     @State private var searchText: String = ""
     @State private var selectedBet: Bet?
+    @State private var useDateFilter: Bool = false
+    @State private var filterDate: Date = Date()
 
     private let headerHeight: CGFloat = 140
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    // The API only returns the last 7 days of settled bets
+    private var windowStart: Date {
+        Calendar.current.date(byAdding: .day, value: -7,
+                              to: Calendar.current.startOfDay(for: Date())) ?? Date()
+    }
 
     var body: some View {
         NavigationStack {
@@ -21,6 +36,7 @@ struct SettledView: View {
 
                     headerView
                     filterBar.padding(.horizontal)
+                    dateBar.padding(.horizontal)
                     searchBar.padding(.horizontal)
 
                     if service.isLoading {
@@ -31,7 +47,7 @@ struct SettledView: View {
                         }
 
                         if filteredBets.isEmpty {
-                            Text(service.errorMessage != nil ? "Failed to load bets." : "No settled bets today.")
+                            Text(service.errorMessage != nil ? "Failed to load bets." : "No settled bets.")
                                 .foregroundColor(.secondary)
                                 .padding(.horizontal)
                                 .padding(.top, 8)
@@ -112,6 +128,34 @@ struct SettledView: View {
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
     }
 
+    // MARK: - Date Bar
+
+    private var dateBar: some View {
+        HStack {
+            Text("Date").font(.headline)
+            Spacer()
+            if useDateFilter {
+                DatePicker("Date", selection: $filterDate, in: windowStart..., displayedComponents: .date)
+                    .labelsHidden()
+                Button {
+                    useDateFilter = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundColor(.secondary)
+                }
+            } else {
+                Button("All") {
+                    filterDate = Date()
+                    useDateFilter = true
+                }
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 4)
+    }
+
     // MARK: - Search Bar
 
     private var searchBar: some View {
@@ -154,12 +198,19 @@ struct SettledView: View {
     // MARK: - Data
 
     private var filteredBets: [Bet] {
-        let sportFiltered = sportFilter == "All"
-            ? service.settledBets
-            : service.settledBets.filter { $0.sport == sportFilter }
-        guard !searchText.isEmpty else { return sportFiltered }
+        var result = service.settledBets
+
+        if useDateFilter {
+            let day = Self.dayFormatter.string(from: filterDate)
+            result = result.filter { $0.eventDate == day }
+        }
+        if sportFilter != "All" {
+            result = result.filter { $0.sport == sportFilter }
+        }
+        guard !searchText.isEmpty else { return result }
+
         let query = searchText.lowercased()
-        return sportFiltered.filter {
+        return result.filter {
             $0.wagerText.lowercased().contains(query) || $0.sport.lowercased().contains(query)
         }
     }
